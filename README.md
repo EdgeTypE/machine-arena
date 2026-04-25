@@ -92,3 +92,4 @@ Swarms of fast bots, flying drones, bipedal walkers, heavy tanks. Snipers that t
 ![GEAR SHOP DURING COMBAT](others/9.png)
 
 Press Tab at any time to open the Field Gear Cache. Spend collected scrap on armor modules, weapon cores, ammo expansions, health regen boosters, and carbon‑fiber damage resistance. The shop pauses the fight—plan your purchases, then resume.
+
