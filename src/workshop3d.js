@@ -600,7 +600,7 @@ function buildTerminals() {
       polygonOffsetUnits: -4,
     });
     const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.82, 1.30), screenMat);
-    screen.position.set(0, 1.72, -0.195);
+    screen.position.set(0, 1.72, -0.190);
     screen.rotation.x = -0.10;
     screen.renderOrder = 1;
     screen.userData.terminalIdx = i;
