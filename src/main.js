@@ -1,3 +1,5 @@
+// 6k lines of js in one single file. -> https://www.youtube.com/watch?v=hBrqlE25lGs
+
 import * as THREE from 'three';
 import { createArena } from './arena.js';
 import { Weapon } from './weapons.js';
