@@ -1,0 +1,2982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MACHINE ARENA - Roguelite FPS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; font-family: 'Courier New', monospace; cursor: default; }
+    canvas { display: block; image-rendering: pixelated; }
+    :root {
+      --retro-bg-0: #070605;
+      --retro-bg-1: #13100d;
+      --retro-bg-2: #2c1b12;
+      --retro-metal-0: #2d2117;
+      --retro-metal-1: #6f5840;
+      --retro-metal-2: #ab8753;
+      --retro-hot-0: #52190d;
+      --retro-hot-1: #ad3f16;
+      --retro-hot-2: #f4c170;
+      --retro-text-main: #efe0c2;
+      --retro-text-soft: #d4b586;
+      --retro-text-muted: #9f8666;
+      --retro-dark: #050404;
+      --hud-scale: 1;
+    }
+
+    /* ============================================================
+       BLOCKER — outer pre-game overlay, wraps all menu screens
+    ============================================================ */
+    #blocker {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 100; color: #0f0;
+      cursor: default;
+    }
+
+    /* ============================================================
+       SCREEN: MAIN MENU — Doom / Quake style
+    ============================================================ */
+    #screen-main {
+      --menu-stone-dark: var(--retro-bg-0);
+      --menu-stone-mid: var(--retro-bg-1);
+      --menu-stone-light: var(--retro-bg-2);
+      --menu-metal-dark: var(--retro-metal-0);
+      --menu-metal-mid: var(--retro-metal-1);
+      --menu-metal-bright: var(--retro-metal-2);
+      --menu-hot-dark: var(--retro-hot-0);
+      --menu-hot-mid: var(--retro-hot-1);
+      --menu-hot-bright: var(--retro-hot-2);
+      --menu-text-main: var(--retro-text-main);
+      --menu-text-muted: var(--retro-text-muted);
+      position: absolute; inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% -25%, rgba(205, 67, 12, 0.32), transparent 58%),
+        radial-gradient(circle at 50% 110%, rgba(95, 24, 8, 0.65), transparent 52%),
+        linear-gradient(180deg, var(--menu-stone-light) 0%, var(--menu-stone-mid) 38%, var(--menu-stone-dark) 100%);
+      color: var(--menu-text-main);
+    }
+    #screen-main::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 0, 0, 0.18) 0,
+          rgba(0, 0, 0, 0.18) 1px,
+          transparent 1px,
+          transparent 3px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          rgba(255, 173, 85, 0.03) 0,
+          rgba(255, 173, 85, 0.03) 2px,
+          transparent 2px,
+          transparent 8px
+        );
+      pointer-events: none;
+      z-index: 1;
+    }
+    #screen-main::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at center, transparent 37%, rgba(0, 0, 0, 0.82) 100%),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.45) 0%, transparent 14%, transparent 86%, rgba(0, 0, 0, 0.45) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+    #screen-main .menu-stage {
+      position: relative;
+      z-index: 2;
+      width: min(92vw, 860px);
+      padding: 44px 54px 34px;
+      text-align: center;
+      border: 3px solid var(--menu-metal-mid);
+      background:
+        linear-gradient(180deg, rgba(14, 10, 8, 0.95) 0%, rgba(8, 6, 5, 0.98) 100%);
+      box-shadow:
+        inset 0 0 0 2px var(--menu-metal-dark),
+        inset 0 0 18px rgba(255, 144, 58, 0.2),
+        0 24px 45px rgba(0, 0, 0, 0.62);
+    }
+    #screen-main .menu-stage::before,
+    #screen-main .menu-stage::after {
+      content: '';
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--menu-metal-bright), transparent);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    #screen-main .menu-stage::before { top: 12px; }
+    #screen-main .menu-stage::after { bottom: 12px; }
+    #screen-main .menu-logo {
+      position: relative;
+      margin-bottom: 26px;
+      text-align: center;
+    }
+    #screen-main .logo-icon {
+      font-family: 'Lucida Console', monospace;
+      font-size: 12px;
+      letter-spacing: 3px;
+      color: #b79e77;
+      margin-bottom: 12px;
+      text-shadow: 0 1px 0 #000;
+      text-transform: uppercase;
+    }
+    #screen-main .logo-title {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: clamp(58px, 8vw, 96px);
+      line-height: 0.86;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: transparent;
+      background: linear-gradient(
+        180deg,
+        #ffebc3 0%,
+        #f9c36d 18%,
+        #f58f3e 43%,
+        #b93716 68%,
+        #2d0606 100%
+      );
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-stroke: 2px #1f0a06;
+      text-shadow:
+        0 3px 0 rgba(255, 225, 173, 0.34),
+        0 6px 0 rgba(69, 26, 14, 0.9),
+        0 14px 28px rgba(0, 0, 0, 0.75);
+      animation: titleFlicker 9.5s steps(1, end) infinite;
+    }
+    #screen-main .logo-sub {
+      margin-top: 14px;
+      font-family: 'Lucida Console', monospace;
+      font-size: 12px;
+      letter-spacing: 3px;
+      color: #d1b07e;
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 #000;
+    }
+    @keyframes titleFlicker {
+      0%, 90%, 93%, 95.5%, 100% { opacity: 1; }
+      91% { opacity: 0.62; }
+      92% { opacity: 0.88; }
+      94% { opacity: 0.56; }
+      95% { opacity: 0.82; }
+    }
+    @keyframes menuTorchPulse {
+      0%, 100% {
+        box-shadow:
+          inset 0 0 0 2px var(--menu-metal-dark),
+          inset 0 0 18px rgba(255, 144, 58, 0.16),
+          0 24px 45px rgba(0, 0, 0, 0.62);
+      }
+      50% {
+        box-shadow:
+          inset 0 0 0 2px var(--menu-metal-dark),
+          inset 0 0 24px rgba(255, 166, 84, 0.22),
+          0 24px 45px rgba(0, 0, 0, 0.72);
+      }
+    }
+    .menu-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 2;
+      position: relative;
+    }
+    .menu-item {
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+      text-transform: uppercase;
+      font-size: 22px;
+      letter-spacing: 6px;
+      color: #666;
+      padding: 10px 30px;
+      transition: color 0.08s, text-shadow 0.08s;
+    }
+    .menu-item::before {
+      content: '  ';
+      display: inline-block;
+      width: 24px;
+    }
+    .menu-item:hover,
+    .menu-item.menu-selected {
+      color: #0f0;
+      text-shadow: 0 0 12px #0f0, 0 0 25px rgba(0, 255, 0, 0.4);
+    }
+    .menu-item:hover::before,
+    .menu-item.menu-selected::before {
+      content: '▶ ';
+    }
+    #screen-main .menu-frame {
+      position: relative;
+      margin: 0 auto;
+      width: min(100%, 560px);
+      padding: 16px 20px;
+      border: 2px solid var(--menu-metal-mid);
+      background:
+        linear-gradient(180deg, rgba(31, 19, 14, 0.86) 0%, rgba(10, 7, 6, 0.9) 100%);
+      box-shadow:
+        inset 0 0 0 1px var(--menu-metal-dark),
+        inset 0 0 16px rgba(255, 161, 75, 0.16);
+      animation: menuTorchPulse 3.2s ease-in-out infinite;
+    }
+    #screen-main .menu-nav { gap: 8px; }
+    #screen-main .menu-item {
+      font-family: 'Lucida Console', monospace;
+      font-weight: bold;
+      font-size: clamp(21px, 2.9vw, 31px);
+      letter-spacing: 3px;
+      color: var(--menu-text-muted);
+      padding: 12px 58px;
+      text-align: center;
+      text-shadow: 2px 2px 0 #000;
+      border: 1px solid transparent;
+      transition: color 0.08s, text-shadow 0.08s, border-color 0.08s, background 0.08s;
+    }
+    #screen-main .menu-item::before,
+    #screen-main .menu-item::after {
+      content: '☠';
+      position: absolute;
+      top: 50%;
+      width: auto;
+      margin: 0;
+      font-size: 16px;
+      color: var(--menu-hot-bright);
+      text-shadow: 0 0 8px rgba(244, 193, 112, 0.45), 0 2px 0 #000;
+      transform: translateY(-50%) scale(0.75);
+      opacity: 0;
+      transition: opacity 0.08s, transform 0.08s;
+      pointer-events: none;
+      display: block;
+    }
+    #screen-main .menu-item::before { left: 16px; }
+    #screen-main .menu-item::after { right: 16px; }
+    #screen-main .menu-item:hover,
+    #screen-main .menu-item.menu-selected {
+      color: var(--menu-text-main);
+      text-shadow: 0 0 16px rgba(244, 193, 112, 0.35), 2px 2px 0 #000;
+      border-color: rgba(171, 135, 83, 0.62);
+      background:
+        linear-gradient(90deg, rgba(82, 25, 13, 0.4) 0%, rgba(173, 63, 22, 0.38) 50%, rgba(82, 25, 13, 0.4) 100%);
+    }
+    #screen-main .menu-item:hover::before,
+    #screen-main .menu-item:hover::after,
+    #screen-main .menu-item.menu-selected::before,
+    #screen-main .menu-item.menu-selected::after {
+      opacity: 1;
+      transform: translateY(-50%) scale(1);
+    }
+    #screen-main .menu-hint {
+      margin-top: 18px;
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: #cab18a;
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 #000;
+    }
+    #screen-main .menu-footer {
+      margin-top: 10px;
+      font-family: 'Lucida Console', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: #8c7354;
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 #000;
+    }
+
+    /* ============================================================
+       SCREEN: CLASS SELECTION
+    ============================================================ */
+    #screen-class {
+      position: absolute; inset: 0;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.9);
+    }
+    #screen-class h2 {
+      font-size: 28px; color: #0f0; letter-spacing: 8px;
+      text-shadow: 0 0 20px #0f0; margin-bottom: 8px; text-transform: uppercase;
+    }
+    #screen-class .subtitle-class {
+      font-size: 12px; color: #0a0; letter-spacing: 4px; margin-bottom: 36px;
+    }
+    .class-select { display: flex; gap: 20px; margin-bottom: 30px; }
+    .class-btn {
+      padding: 20px 30px; background: rgba(0,255,0,0.1); border: 2px solid #0f0;
+      color: #0f0; cursor: pointer; font-family: 'Courier New', monospace;
+      font-size: 14px; text-align: center; transition: all 0.3s;
+      min-width: 180px;
+    }
+    .class-btn:hover { background: rgba(0,255,0,0.3); transform: scale(1.05); }
+    .class-btn.selected { background: rgba(0,255,0,0.4); box-shadow: 0 0 20px rgba(0,255,0,0.5); }
+    .class-btn h3 { font-size: 18px; margin-bottom: 8px; }
+    .class-btn p { font-size: 11px; color: #0a0; line-height: 1.4; }
+    .class-controls-hint {
+      font-size: 11px; color: #0a0; letter-spacing: 2px;
+      text-align: center; margin-bottom: 20px;
+    }
+    #start-btn {
+      padding: 15px 60px; background: #0f0; color: #000; border: none;
+      font-family: 'Courier New', monospace; font-size: 18px; cursor: pointer;
+      font-weight: bold; letter-spacing: 4px; display: none;
+    }
+    #start-btn:hover { background: #0c0; }
+    #class-back-btn {
+      margin-top: 16px; font-size: 12px; color: #555; cursor: pointer;
+      letter-spacing: 4px; text-transform: uppercase;
+    }
+    #class-back-btn:hover { color: #0f0; }
+
+    /* ============================================================
+       SCREEN: CONTROLS (inside main menu overlay)
+    ============================================================ */
+    #screen-controls,
+    #screen-settings,
+    #screen-pause {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    #screen-controls::before,
+    #screen-settings::before,
+    #screen-pause::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.2) 0,
+        rgba(0, 0, 0, 0.2) 2px,
+        transparent 2px,
+        transparent 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    #screen-controls::after,
+    #screen-settings::after,
+    #screen-pause::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.82) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #screen-controls {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 26px 14px;
+      background:
+        radial-gradient(circle at 50% -14%, rgba(213, 78, 20, 0.24), transparent 52%),
+        radial-gradient(circle at 50% 112%, rgba(70, 18, 8, 0.66), transparent 48%),
+        linear-gradient(180deg, #1d1510 0%, #0a0807 64%, #050404 100%);
+    }
+    .controls-shell {
+      position: relative;
+      z-index: 2;
+      width: min(94vw, 780px);
+      padding: 30px 34px 22px;
+      border: 3px solid var(--retro-metal-1);
+      background: linear-gradient(180deg, rgba(16, 11, 9, 0.94) 0%, rgba(8, 6, 5, 0.98) 100%);
+      box-shadow:
+        inset 0 0 0 2px var(--retro-metal-0),
+        inset 0 0 18px rgba(255, 158, 71, 0.17),
+        0 24px 50px rgba(0, 0, 0, 0.7);
+    }
+    #screen-controls h2 {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: clamp(32px, 5vw, 52px);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      line-height: 0.95;
+      text-align: center;
+      margin-bottom: 8px;
+      color: transparent;
+      background: linear-gradient(180deg, #ffebc4 0%, #efb467 28%, #cf622b 56%, #401008 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-stroke: 1px #1e0a05;
+      text-shadow: 0 4px 0 rgba(78, 31, 16, 0.8), 0 10px 18px rgba(0, 0, 0, 0.68);
+    }
+    .controls-subtitle {
+      text-align: center;
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--retro-text-soft);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      text-shadow: 0 1px 0 #000;
+    }
+    .controls-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      border: 2px solid var(--retro-metal-1);
+      color: var(--retro-text-main);
+      font-family: 'Lucida Console', monospace;
+      font-size: 14px;
+      letter-spacing: 1px;
+      background: linear-gradient(180deg, rgba(39, 22, 14, 0.42) 0%, rgba(11, 9, 8, 0.48) 100%);
+      box-shadow: inset 0 0 0 1px rgba(46, 29, 19, 0.95);
+    }
+    .controls-table tr:nth-child(odd) {
+      background: rgba(98, 50, 25, 0.2);
+    }
+    .controls-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(126, 93, 61, 0.42);
+      text-shadow: 1px 1px 0 #000;
+      vertical-align: middle;
+    }
+    .controls-table tr:last-child td { border-bottom: none; }
+    .controls-table td:first-child {
+      width: 33%;
+      color: #ffd38f;
+      text-align: right;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    #controls-back-btn {
+      margin-top: 18px;
+      font-family: 'Lucida Console', monospace;
+      font-size: 13px;
+      color: var(--retro-text-soft);
+      cursor: pointer;
+      letter-spacing: 2px;
+      text-align: center;
+      text-transform: uppercase;
+      padding: 10px 14px;
+      border: 1px solid rgba(171, 135, 83, 0.6);
+      background: linear-gradient(180deg, rgba(77, 32, 15, 0.38) 0%, rgba(31, 15, 10, 0.65) 100%);
+      text-shadow: 0 1px 0 #000;
+      transition: border-color 0.08s, color 0.08s, text-shadow 0.08s;
+    }
+    #controls-back-btn:hover {
+      color: var(--retro-text-main);
+      border-color: var(--retro-hot-2);
+      text-shadow: 0 0 12px rgba(244, 193, 112, 0.35), 0 1px 0 #000;
+    }
+
+    /* ============================================================
+       SCREEN: PAUSE
+    ============================================================ */
+    #screen-pause {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 14px;
+      background:
+        radial-gradient(circle at 50% -15%, rgba(220, 88, 30, 0.21), transparent 52%),
+        radial-gradient(circle at 50% 112%, rgba(55, 14, 8, 0.72), transparent 50%),
+        linear-gradient(180deg, #1a1411 0%, #090807 64%, #040303 100%);
+    }
+    .pause-shell {
+      position: relative;
+      z-index: 2;
+      width: min(90vw, 620px);
+      padding: 34px 28px 26px;
+      text-align: center;
+      border: 3px solid var(--retro-metal-1);
+      background: linear-gradient(180deg, rgba(16, 11, 9, 0.94) 0%, rgba(8, 6, 5, 0.98) 100%);
+      box-shadow:
+        inset 0 0 0 2px var(--retro-metal-0),
+        inset 0 0 18px rgba(255, 158, 71, 0.17),
+        0 24px 50px rgba(0, 0, 0, 0.7);
+    }
+    #screen-pause h2 {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: clamp(36px, 6vw, 62px);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      line-height: 0.95;
+      margin-bottom: 12px;
+      color: transparent;
+      background: linear-gradient(180deg, #ffecb8 0%, #eda250 34%, #ca5321 66%, #3a1009 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-stroke: 1px #1f0a05;
+      text-shadow: 0 4px 0 rgba(78, 31, 16, 0.8), 0 10px 18px rgba(0, 0, 0, 0.68);
+    }
+    .pause-subtext {
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      color: var(--retro-text-soft);
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 #000;
+    }
+    #screen-pause .menu-nav {
+      gap: 8px;
+    }
+    #screen-pause .menu-item {
+      font-family: 'Lucida Console', monospace;
+      font-size: clamp(18px, 3.2vw, 26px);
+      letter-spacing: 2px;
+      color: var(--retro-text-muted);
+      padding: 12px 48px;
+      text-align: center;
+      text-shadow: 1px 1px 0 #000;
+      border: 1px solid rgba(126, 93, 61, 0.4);
+      background: linear-gradient(180deg, rgba(51, 29, 18, 0.32) 0%, rgba(15, 10, 8, 0.44) 100%);
+      transition: color 0.08s, border-color 0.08s, text-shadow 0.08s, background 0.08s;
+    }
+    #screen-pause .menu-item::before,
+    #screen-pause .menu-item::after {
+      content: '▸';
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%) scale(0.7);
+      font-size: 15px;
+      color: var(--retro-hot-2);
+      text-shadow: 0 0 8px rgba(244, 193, 112, 0.45), 0 1px 0 #000;
+      opacity: 0;
+      width: auto;
+      margin: 0;
+      display: block;
+      transition: transform 0.08s, opacity 0.08s;
+      pointer-events: none;
+    }
+    #screen-pause .menu-item::before { left: 16px; }
+    #screen-pause .menu-item::after {
+      right: 16px;
+      transform: translateY(-50%) rotate(180deg) scale(0.7);
+    }
+    #screen-pause .menu-item:hover,
+    #screen-pause .menu-item.menu-selected {
+      color: var(--retro-text-main);
+      border-color: rgba(171, 135, 83, 0.7);
+      background: linear-gradient(90deg, rgba(82, 25, 13, 0.35) 0%, rgba(173, 63, 22, 0.33) 50%, rgba(82, 25, 13, 0.35) 100%);
+      text-shadow: 0 0 12px rgba(244, 193, 112, 0.35), 1px 1px 0 #000;
+    }
+    #screen-pause .menu-item:hover::before,
+    #screen-pause .menu-item:hover::after,
+    #screen-pause .menu-item.menu-selected::before,
+    #screen-pause .menu-item.menu-selected::after {
+      opacity: 1;
+      transform: translateY(-50%) scale(1);
+    }
+    #screen-pause .menu-item:hover::after,
+    #screen-pause .menu-item.menu-selected::after {
+      transform: translateY(-50%) rotate(180deg) scale(1);
+    }
+    #pause-quit-btn {
+      color: #e68a78;
+      border-color: rgba(196, 70, 44, 0.55);
+    }
+    #pause-quit-btn:hover,
+    #pause-quit-btn.menu-selected {
+      color: #ffd8c8;
+      border-color: rgba(244, 140, 111, 0.85);
+      text-shadow: 0 0 14px rgba(244, 140, 111, 0.42), 1px 1px 0 #000;
+    }
+
+    /* ============================================================
+       SCREEN: SETTINGS (Quake 3 Theme)
+    ============================================================ */
+    #screen-settings {
+      display: none;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      padding: 26px 14px;
+      background:
+        radial-gradient(circle at 50% -14%, rgba(213, 78, 20, 0.24), transparent 52%),
+        radial-gradient(circle at 50% 112%, rgba(70, 18, 8, 0.66), transparent 48%),
+        linear-gradient(180deg, #1d1510 0%, #0a0807 64%, #050404 100%);
+    }
+    .settings-container {
+      position: relative;
+      z-index: 2;
+      width: min(94vw, 960px);
+      min-height: 520px;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      padding: 28px 26px 70px;
+      border: 3px solid var(--retro-metal-1);
+      background: linear-gradient(180deg, rgba(16, 11, 9, 0.94) 0%, rgba(8, 6, 5, 0.98) 100%);
+      box-shadow:
+        inset 0 0 0 2px var(--retro-metal-0),
+        inset 0 0 18px rgba(255, 158, 71, 0.17),
+        0 24px 50px rgba(0, 0, 0, 0.7);
+    }
+    .settings-container::before,
+    .settings-container::after {
+      content: '';
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--retro-metal-2), transparent);
+      opacity: 0.92;
+      pointer-events: none;
+    }
+    .settings-container::before { top: 14px; }
+    .settings-container::after { bottom: 14px; }
+    .settings-left {
+      flex: 0.9;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 10px;
+      padding-right: 26px;
+      text-align: right;
+      border-right: 2px solid rgba(126, 93, 61, 0.7);
+    }
+    .settings-tab {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: clamp(30px, 4.4vw, 48px);
+      color: #a48966;
+      text-shadow: 0 2px 0 #000;
+      margin: 0;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: 0.5;
+      cursor: pointer;
+      transition: opacity 0.08s, color 0.08s, text-shadow 0.08s;
+    }
+    .settings-tab:hover {
+      opacity: 0.75;
+    }
+    .settings-tab.active {
+      opacity: 1;
+      color: var(--retro-text-main);
+      text-shadow: 0 2px 0 #000, 0 0 14px rgba(244, 193, 112, 0.38);
+    }
+    
+    .settings-right {
+      flex: 1.1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-left: 30px;
+      box-sizing: border-box;
+    }
+    .settings-panel {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+    }
+    .settings-panel.active {
+      display: flex;
+    }
+    .settings-panel-note {
+      font-family: 'Lucida Console', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--retro-text-muted);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      text-shadow: 0 1px 0 #000;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      width: 100%;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border: 1px solid rgba(126, 93, 61, 0.45);
+      background: linear-gradient(180deg, rgba(55, 32, 20, 0.3) 0%, rgba(17, 11, 9, 0.45) 100%);
+      text-shadow: 1px 1px 0 #000;
+    }
+    .setting-label {
+      font-family: 'Lucida Console', monospace;
+      font-weight: bold;
+      font-size: 16px;
+      color: var(--retro-text-main);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .setting-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: min(330px, 48vw);
+      justify-content: flex-end;
+    }
+    .setting-value {
+      min-width: 68px;
+      text-align: right;
+      font-family: 'Lucida Console', monospace;
+      font-size: 12px;
+      letter-spacing: 1px;
+      color: var(--retro-text-soft);
+      text-shadow: 0 1px 0 #000;
+    }
+    .setting-slider {
+      -webkit-appearance: none;
+      width: min(240px, 42vw);
+      height: 14px;
+      background: linear-gradient(90deg, rgba(66, 19, 10, 0.95) 0%, rgba(150, 56, 20, 0.95) 100%);
+      outline: none;
+      border: 1px solid rgba(171, 135, 83, 0.75);
+      box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
+      cursor: pointer;
+    }
+    .setting-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 12px;
+      height: 24px;
+      background: linear-gradient(180deg, #f2c27b 0%, #bc612d 75%);
+      border: 1px solid #24130d;
+      box-shadow: 0 0 7px rgba(0, 0, 0, 0.72);
+      border-radius: 1px;
+      cursor: pointer;
+    }
+    .setting-toggle {
+      min-width: 74px;
+      padding: 7px 10px;
+      border: 1px solid rgba(171, 135, 83, 0.7);
+      background: linear-gradient(180deg, rgba(71, 30, 15, 0.45) 0%, rgba(20, 11, 8, 0.65) 100%);
+      color: var(--retro-text-soft);
+      font-family: 'Lucida Console', monospace;
+      font-size: 12px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-shadow: 0 1px 0 #000;
+      transition: color 0.08s, border-color 0.08s, text-shadow 0.08s;
+    }
+    .setting-toggle[aria-pressed='true'] {
+      color: var(--retro-text-main);
+      border-color: var(--retro-hot-2);
+      text-shadow: 0 0 10px rgba(244, 193, 112, 0.35), 0 1px 0 #000;
+    }
+    #settings-back-btn {
+      position: absolute;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Lucida Console', monospace;
+      font-size: 13px;
+      color: var(--retro-text-soft);
+      cursor: pointer;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 #000;
+      border: 1px solid rgba(171, 135, 83, 0.6);
+      padding: 10px 18px;
+      background: linear-gradient(180deg, rgba(77, 32, 15, 0.38) 0%, rgba(31, 15, 10, 0.65) 100%);
+      transition: border-color 0.08s, color 0.08s, text-shadow 0.08s;
+    }
+    #settings-back-btn:hover {
+      color: var(--retro-text-main);
+      border-color: var(--retro-hot-2);
+      text-shadow: 0 0 12px rgba(244, 193, 112, 0.35), 0 1px 0 #000;
+    }
+
+    /* ============================================================
+       SCREEN: TUTORIAL — Old-school field manual (single page)
+    ============================================================ */
+    #screen-tutorial {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 26px 14px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% -14%, rgba(213, 78, 20, 0.24), transparent 52%),
+        radial-gradient(circle at 50% 112%, rgba(70, 18, 8, 0.66), transparent 48%),
+        linear-gradient(180deg, #1d1510 0%, #0a0807 64%, #050404 100%);
+      cursor: default;
+    }
+    #screen-tutorial::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.2) 0,
+        rgba(0, 0, 0, 0.2) 2px,
+        transparent 2px,
+        transparent 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    #screen-tutorial::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.82) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .tutorial-shell {
+      position: relative;
+      z-index: 2;
+      width: min(94vw, 820px);
+      padding: 36px 38px 28px;
+      border: 3px solid var(--retro-metal-1);
+      background: linear-gradient(180deg, rgba(16, 11, 9, 0.94) 0%, rgba(8, 6, 5, 0.98) 100%);
+      box-shadow:
+        inset 0 0 0 2px var(--retro-metal-0),
+        inset 0 0 18px rgba(255, 158, 71, 0.17),
+        0 24px 50px rgba(0, 0, 0, 0.7);
+      margin-bottom: 28px;
+    }
+    .tutorial-shell::before,
+    .tutorial-shell::after {
+      content: '';
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--retro-metal-2), transparent);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    .tutorial-shell::before { top: 12px; }
+    .tutorial-shell::after { bottom: 12px; }
+
+    #screen-tutorial h2 {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: clamp(36px, 5.5vw, 58px);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      line-height: 0.95;
+      text-align: center;
+      margin-bottom: 6px;
+      color: transparent;
+      background: linear-gradient(180deg, #ffebc4 0%, #efb467 28%, #cf622b 56%, #401008 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-stroke: 1px #1e0a05;
+      text-shadow: 0 4px 0 rgba(78, 31, 16, 0.8), 0 10px 18px rgba(0, 0, 0, 0.68);
+    }
+    .tutorial-subtitle {
+      text-align: center;
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--retro-text-soft);
+      text-transform: uppercase;
+      margin-bottom: 28px;
+      text-shadow: 0 1px 0 #000;
+    }
+    .tutorial-epigraph {
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      font-size: 15px;
+      letter-spacing: 3px;
+      color: #ff8844;
+      text-transform: uppercase;
+      line-height: 2;
+      margin-bottom: 32px;
+      text-shadow: 0 0 14px rgba(255, 100, 40, 0.45), 0 2px 0 #000;
+      padding: 14px 18px;
+      border-top: 1px solid rgba(171, 135, 83, 0.4);
+      border-bottom: 1px solid rgba(171, 135, 83, 0.4);
+    }
+    .tut-section {
+      margin-bottom: 28px;
+    }
+    .tut-section-title {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: clamp(22px, 3.5vw, 32px);
+      color: #ffd39c;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid rgba(171, 135, 83, 0.5);
+      text-shadow: 0 2px 0 #000, 0 0 10px rgba(255, 180, 80, 0.2);
+    }
+    .tut-section-title::before {
+      content: '\25b8 ';
+      color: var(--retro-hot-1);
+    }
+    .tut-body {
+      font-family: 'Lucida Console', monospace;
+      font-size: 13px;
+      line-height: 1.85;
+      color: var(--retro-text-main);
+      letter-spacing: 0.5px;
+      text-shadow: 1px 1px 0 #000;
+    }
+    .tut-body p {
+      margin-bottom: 12px;
+    }
+    .tut-body strong {
+      color: #ffd38f;
+    }
+    .tut-body em {
+      font-style: normal;
+      color: #ff9944;
+      text-shadow: 0 0 8px rgba(255, 130, 50, 0.3), 1px 1px 0 #000;
+    }
+    .tut-highlight {
+      color: #ff6633;
+      font-weight: bold;
+      text-shadow: 0 0 10px rgba(255, 80, 30, 0.4), 1px 1px 0 #000;
+    }
+    .tut-card-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .tut-card {
+      padding: 16px 12px;
+      border: 2px solid rgba(171, 135, 83, 0.55);
+      background: linear-gradient(180deg, rgba(45, 28, 20, 0.5) 0%, rgba(13, 10, 9, 0.72) 100%);
+      text-align: center;
+      box-shadow: inset 0 0 0 1px rgba(46, 29, 19, 0.9);
+    }
+    .tut-card-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .tut-card h4 {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: 20px;
+      color: var(--retro-text-main);
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      text-shadow: 0 1px 0 #000;
+    }
+    .tut-card p {
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      color: #c3a579;
+      line-height: 1.55;
+      letter-spacing: 0.3px;
+    }
+    .tut-card.tut-card-lmg { border-color: rgba(0, 180, 255, 0.6); }
+    .tut-card.tut-card-lmg h4 { color: #66ccff; }
+    .tut-card.tut-card-rifle { border-color: rgba(0, 220, 120, 0.6); }
+    .tut-card.tut-card-rifle h4 { color: #44dd88; }
+    .tut-card.tut-card-shotgun { border-color: rgba(255, 100, 50, 0.6); }
+    .tut-card.tut-card-shotgun h4 { color: #ff8844; }
+    .tut-ability-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 16px 0;
+    }
+    .tut-ability {
+      padding: 14px 12px;
+      border: 1px solid rgba(126, 93, 61, 0.55);
+      background: linear-gradient(180deg, rgba(49, 30, 20, 0.42) 0%, rgba(12, 9, 8, 0.66) 100%);
+      box-shadow: inset 0 0 0 1px rgba(46, 29, 19, 0.9);
+    }
+    .tut-ability h4 {
+      font-family: 'Lucida Console', monospace;
+      font-size: 14px;
+      font-weight: bold;
+      color: #ffd39c;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+      text-shadow: 0 1px 0 #000;
+    }
+    .tut-ability p {
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      color: #c3a579;
+      line-height: 1.5;
+    }
+    .tut-more {
+      grid-column: span 2;
+      padding: 12px;
+      border: 1px solid rgba(126, 93, 61, 0.4);
+      background: linear-gradient(180deg, rgba(49, 30, 20, 0.22) 0%, rgba(12, 9, 8, 0.46) 100%);
+      box-shadow: inset 0 0 0 1px rgba(46, 29, 19, 0.5);
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tut-more span {
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      color: #ffd39c;
+      letter-spacing: 6px;
+      font-weight: bold;
+      text-shadow: 0 1px 0 #000;
+    }
+    .tut-more h4 {
+      font-family: 'Lucida Console', monospace;
+      font-size: 14px;
+      font-weight: bold;
+      color: #ffd39c;
+      letter-spacing: 1px;
+      text-shadow: 0 1px 0 #000;
+    }
+    .tut-boss-banner {
+      padding: 16px;
+      margin: 16px 0;
+      border: 2px solid rgba(255, 60, 30, 0.6);
+      background:
+        linear-gradient(90deg, rgba(82, 25, 13, 0.45) 0%, rgba(30, 10, 6, 0.6) 50%, rgba(82, 25, 13, 0.45) 100%);
+      text-align: center;
+      box-shadow: inset 0 0 20px rgba(255, 40, 20, 0.15);
+    }
+    .tut-boss-banner h4 {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: 22px;
+      color: #ff4422;
+      letter-spacing: 3px;
+      text-shadow: 0 0 14px rgba(255, 40, 20, 0.5), 0 2px 0 #000;
+      margin-bottom: 6px;
+    }
+    .tut-boss-banner p {
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      color: #e8a888;
+      line-height: 1.5;
+    }
+    .tut-img {
+      width: 100%;
+      height: auto;
+      max-height: 420px;
+      object-fit: cover;
+      margin: 16px 0;
+      border: 2px solid rgba(171, 135, 83, 0.7);
+      background: #000;
+      display: block;
+      box-shadow: 
+        0 12px 24px rgba(0, 0, 0, 0.7),
+        inset 0 0 40px rgba(255, 120, 40, 0.15);
+      image-rendering: auto;
+    }
+    .tut-img-placeholder {
+      width: 100%;
+      height: 120px;
+      margin: 14px 0;
+      border: 2px solid rgba(126, 93, 61, 0.5);
+      background:
+        repeating-linear-gradient(
+          45deg,
+          rgba(45, 33, 23, 0.6),
+          rgba(45, 33, 23, 0.6) 10px,
+          rgba(30, 20, 14, 0.6) 10px,
+          rgba(30, 20, 14, 0.6) 20px
+        );
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Lucida Console', monospace;
+      font-size: 12px;
+      letter-spacing: 3px;
+      color: rgba(171, 135, 83, 0.6);
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 #000;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
+    }
+    .tut-divider {
+      height: 2px;
+      margin: 24px 0;
+      background: linear-gradient(90deg, transparent, var(--retro-metal-2), transparent);
+      opacity: 0.7;
+    }
+    #tutorial-back-btn {
+      margin-top: 18px;
+      font-family: 'Lucida Console', monospace;
+      font-size: 13px;
+      color: var(--retro-text-soft);
+      cursor: pointer;
+      letter-spacing: 2px;
+      text-align: center;
+      text-transform: uppercase;
+      padding: 10px 14px;
+      border: 1px solid rgba(171, 135, 83, 0.6);
+      background: linear-gradient(180deg, rgba(77, 32, 15, 0.38) 0%, rgba(31, 15, 10, 0.65) 100%);
+      text-shadow: 0 1px 0 #000;
+      transition: border-color 0.08s, color 0.08s, text-shadow 0.08s;
+    }
+    #tutorial-back-btn:hover {
+      color: var(--retro-text-main);
+      border-color: var(--retro-hot-2);
+      text-shadow: 0 0 12px rgba(244, 193, 112, 0.35), 0 1px 0 #000;
+    }
+
+    /* ============================================================
+       SCREEN: CREDITS — Retro Industrial Shell
+    ============================================================ */
+    #screen-credits {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 26px 14px;
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% -14%, rgba(213, 78, 20, 0.24), transparent 52%),
+        radial-gradient(circle at 50% 112%, rgba(70, 18, 8, 0.66), transparent 48%),
+        linear-gradient(180deg, #1d1510 0%, #0a0807 64%, #050404 100%);
+      cursor: default;
+    }
+    #screen-credits::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.2) 0,
+        rgba(0, 0, 0, 0.2) 2px,
+        transparent 2px,
+        transparent 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    #screen-credits::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.82) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .credits-shell {
+      position: relative;
+      z-index: 2;
+      width: min(90vw, 680px);
+      padding: 44px 50px 34px;
+      border: 3px solid var(--retro-metal-1);
+      background: linear-gradient(180deg, rgba(16, 11, 9, 0.94) 0%, rgba(8, 6, 5, 0.98) 100%);
+      box-shadow:
+        inset 0 0 0 2px var(--retro-metal-0),
+        inset 0 0 24px rgba(255, 158, 71, 0.18),
+        0 30px 60px rgba(0, 0, 0, 0.75);
+      text-align: center;
+    }
+    .credits-shell::before,
+    .credits-shell::after {
+      content: '';
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--retro-metal-2), transparent);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    .credits-shell::before { top: 12px; }
+    .credits-shell::after { bottom: 12px; }
+
+    #screen-credits h2 {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: clamp(42px, 7vw, 68px);
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      line-height: 0.95;
+      margin-bottom: 8px;
+      color: transparent;
+      background: linear-gradient(180deg, #ffebc4 0%, #efb467 28%, #cf622b 56%, #401008 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-stroke: 1px #1e0a05;
+      text-shadow: 0 4px 0 rgba(78, 31, 16, 0.8), 0 10px 18px rgba(0, 0, 0, 0.68);
+    }
+    .credits-subtitle {
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--retro-text-soft);
+      text-transform: uppercase;
+      margin-bottom: 42px;
+      text-shadow: 0 1px 0 #000;
+    }
+    .credits-content {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      margin-bottom: 48px;
+    }
+    .credit-entry {
+      position: relative;
+    }
+    .credit-role {
+      font-family: 'Lucida Console', monospace;
+      font-size: 12px;
+      letter-spacing: 4px;
+      color: var(--retro-text-muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .credit-name {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: 32px;
+      letter-spacing: 2px;
+      color: #ffd39c;
+      text-transform: uppercase;
+      text-shadow: 0 2px 0 #000, 0 0 15px rgba(255, 180, 80, 0.3);
+    }
+    #credits-back-btn {
+      margin-top: 24px;
+      font-family: 'Lucida Console', monospace;
+      font-size: 13px;
+      color: var(--retro-text-soft);
+      cursor: pointer;
+      letter-spacing: 2px;
+      text-align: center;
+      text-transform: uppercase;
+      padding: 12px 24px;
+      border: 1px solid rgba(171, 135, 83, 0.6);
+      background: linear-gradient(180deg, rgba(77, 32, 15, 0.38) 0%, rgba(31, 15, 10, 0.65) 100%);
+      text-shadow: 0 1px 0 #000;
+      transition: all 0.08s;
+      display: inline-block;
+    }
+    #credits-back-btn:hover {
+      color: var(--retro-text-main);
+      border-color: var(--retro-hot-2);
+      text-shadow: 0 0 12px rgba(244, 193, 112, 0.35), 0 1px 0 #000;
+      background: linear-gradient(180deg, rgba(100, 45, 25, 0.45) 0%, rgba(45, 25, 15, 0.75) 100%);
+    }
+
+    @media (max-width: 860px), (max-height: 760px) {
+      .tutorial-shell {
+        width: min(96vw, 740px);
+        padding: 22px 14px 18px;
+      }
+      .tut-card-row {
+        grid-template-columns: 1fr;
+      }
+      .tut-ability-grid {
+        grid-template-columns: 1fr;
+      }
+      .tutorial-epigraph {
+        font-size: 13px;
+        letter-spacing: 2px;
+      }
+    }
+
+    /* ============================================================
+       STORY SCREEN — Doom briefing cinematic
+    ============================================================ */
+    #screen-story {
+      position: fixed; inset: 0;
+      background: #000;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 110; padding: 60px 80px; overflow: hidden;
+      cursor: default;
+    }
+    /* Subtle red vignette */
+    #screen-story::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at center, transparent 30%, rgba(60,0,0,0.55) 100%);
+      pointer-events: none; z-index: 0;
+    }
+    /* Scanlines on story screen */
+    #screen-story::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px
+      );
+      pointer-events: none; z-index: 1;
+    }
+    #story-text-wrap {
+      position: relative; z-index: 2;
+      max-width: 780px; text-align: center;
+    }
+    #story-text-content {
+      font-family: 'Courier New', monospace;
+      font-size: 19px; color: #ddd;
+      letter-spacing: 3px; line-height: 2.1;
+      text-transform: uppercase;
+      text-shadow: 0 0 12px rgba(255,80,80,0.35), 0 0 30px rgba(255,40,40,0.15);
+      white-space: pre-line; display: block;
+    }
+    .story-cursor {
+      display: inline-block; width: 2px; height: 20px;
+      background: #ddd; margin-left: 2px; vertical-align: middle;
+      animation: storyCursorBlink 0.65s step-end infinite;
+    }
+    @keyframes storyCursorBlink { 50% { opacity: 0; } }
+    #story-hint {
+      position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+      font-size: 13px; color: #555; letter-spacing: 6px;
+      text-transform: uppercase; z-index: 2;
+      opacity: 0; transition: opacity 1s;
+      animation: storyHintPulse 1.5s ease-in-out infinite;
+    }
+    @keyframes storyHintPulse {
+      0%, 100% { opacity: 0.35; }
+      50% { opacity: 0.9; }
+    }
+
+    #hud {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 45;
+      pointer-events: none;
+      background: none;
+      box-shadow: none;
+      border: none;
+    }
+    #hud::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.16) 0,
+        rgba(0, 0, 0, 0.16) 2px,
+        transparent 2px,
+        transparent 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    #hud-bar {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      color: var(--retro-text-main);
+      font-family: 'Lucida Console', monospace;
+      font-size: calc(12px * var(--hud-scale));
+      letter-spacing: 1px;
+      text-shadow: 1px 1px 0 #000;
+    }
+    .hud-widget {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      gap: calc(4px * var(--hud-scale));
+      padding: calc(10px * var(--hud-scale)) calc(14px * var(--hud-scale));
+      border: 1px solid rgba(171, 135, 83, 0.6);
+      background: rgba(20, 15, 12, 0.7);
+      backdrop-filter: blur(4px);
+      box-shadow: 
+2026-04-24T01:06:11+03:00.
+        inset 0 0 15px rgba(255, 150, 62, 0.12),
+        0 8px 16px rgba(0, 0, 0, 0.6);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+    .hud-fill {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      background: linear-gradient(90deg, #b72818 0%, #ef6e35 100%);
+      transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      opacity: 0.8;
+      clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+    }
+    .hud-fill-ammo {
+      background: linear-gradient(270deg, #00aaff 0%, #00ffff 100%);
+      left: auto;
+      right: 0;
+      clip-path: polygon(18px 0, 100% 0, 100% 100%, 0 100%);
+    }
+    .hud-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      width: 100%;
+      height: 100%;
+    }
+    .hud-left {
+      bottom: calc(24px * var(--hud-scale));
+      left: calc(24px * var(--hud-scale));
+      min-width: calc(220px * var(--hud-scale));
+      clip-path: polygon(0 0, 100% 0, 92% 100%, 0% 100%);
+      border-left: 3px solid var(--retro-hot-1);
+    }
+    .hud-center {
+      top: calc(24px * var(--hud-scale));
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: calc(180px * var(--hud-scale));
+      align-items: center;
+      text-align: center;
+      clip-path: polygon(10% 0, 90% 0, 100% 100%, 0 100%);
+      border-bottom: 2px solid rgba(171, 135, 83, 0.4);
+    }
+    .hud-right {
+      bottom: calc(24px * var(--hud-scale));
+      right: calc(24px * var(--hud-scale));
+      min-width: calc(220px * var(--hud-scale));
+      align-items: flex-end;
+      text-align: right;
+      clip-path: polygon(8% 0, 100% 0, 100% 100%, 0% 100%);
+      border-right: 3px solid var(--retro-metal-1);
+    }
+    #health-text,
+    #wave-text,
+    #ammo-text,
+    #score-text,
+    #enemy-text,
+    #grenade-text,
+    #streak-text,
+    #gear-text {
+      font-family: 'Lucida Console', monospace;
+      color: var(--retro-text-main);
+      text-shadow: 1px 1px 0 #000;
+    }
+    #health-text {
+      color: #ffd8a3;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    #wave-text {
+      color: #ffd39c;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+    #enemy-text { color: #d8bd97; }
+    #ammo-text { color: #f3dfbf; }
+    #score-text { color: #dcbf93; }
+    #streak-text {
+      min-height: 14px;
+      color: #ffb884;
+      text-shadow: 0 0 8px rgba(255, 127, 58, 0.35), 1px 1px 0 #000;
+    }
+    #gear-text {
+      color: #f4c170 !important;
+      letter-spacing: 1px;
+    }
+    #grenade-text:empty,
+    #streak-text:empty {
+      display: none;
+    }
+    .health-bar-bg {
+      width: min(calc(240px * var(--hud-scale)), 42vw);
+      height: calc(11px * var(--hud-scale));
+      background: rgba(51, 12, 8, 0.72);
+      border: 1px solid rgba(199, 84, 52, 0.7);
+      box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.85);
+    }
+    .health-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #b72818 0%, #ef6e35 100%);
+      box-shadow: 0 0 10px rgba(239, 110, 53, 0.45);
+      transition: width 0.3s;
+    }
+
+    #crosshair {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: calc(20px * var(--hud-scale)); height: calc(20px * var(--hud-scale)); z-index: 50; pointer-events: none; display: none;
+    }
+    #crosshair::before, #crosshair::after {
+      content: ''; position: absolute; background: rgba(0,255,0,0.8);
+    }
+    #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+    #crosshair::after { height: 2px; width: 100%; top: 50%; transform: translateY(-50%); }
+
+    /* Shotgun: circle reticle instead of cross */
+    #crosshair.shotgun-reticle { width: 32px; height: 32px; }
+    #crosshair.shotgun-reticle::before,
+    #crosshair.shotgun-reticle::after { display: none; }
+    #crosshair.shotgun-reticle { border: 2px solid rgba(0,255,0,0.8); border-radius: 50%; background: transparent; }
+
+    #wave-announce {
+      position: fixed; top: 30%; left: 50%; transform: translateX(-50%);
+      color: #f00; font-size: calc(48px * var(--hud-scale)); font-weight: bold; letter-spacing: calc(8px * var(--hud-scale));
+      text-shadow: 0 0 30px #f00; z-index: 60; display: none;
+      text-transform: uppercase; pointer-events: none;
+    }
+
+    #card-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 80;
+      padding: 20px 16px;
+      background:
+        radial-gradient(circle at 50% -20%, rgba(213, 78, 20, 0.22), transparent 55%),
+        radial-gradient(circle at 50% 115%, rgba(70, 18, 8, 0.78), transparent 52%),
+        linear-gradient(180deg, rgba(10, 8, 7, 0.94) 0%, rgba(5, 4, 4, 0.98) 100%);
+      overflow: hidden;
+      cursor: default;
+    }
+    #card-screen::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.22) 0,
+        rgba(0, 0, 0, 0.22) 2px,
+        transparent 2px,
+        transparent 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    #card-screen .card-stage {
+      position: relative;
+      z-index: 2;
+      width: min(96vw, 1120px);
+      padding: 30px 24px 22px;
+      border: 3px solid var(--retro-metal-1);
+      background: linear-gradient(180deg, rgba(16, 11, 9, 0.94) 0%, rgba(8, 6, 5, 0.98) 100%);
+      box-shadow:
+        inset 0 0 0 2px var(--retro-metal-0),
+        inset 0 0 18px rgba(255, 158, 71, 0.17),
+        0 24px 50px rgba(0, 0, 0, 0.7);
+      text-align: center;
+    }
+    #card-title {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: clamp(34px, 5.2vw, 58px);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      line-height: 0.95;
+      margin-bottom: 6px;
+      color: transparent;
+      background: linear-gradient(180deg, #ffebc4 0%, #efb467 28%, #cf622b 56%, #401008 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-stroke: 1px #1e0a05;
+      text-shadow: 0 4px 0 rgba(78, 31, 16, 0.8), 0 10px 18px rgba(0, 0, 0, 0.68);
+    }
+    #card-subtitle {
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--retro-text-soft);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      text-shadow: 0 1px 0 #000;
+    }
+    .card-container {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      align-items: stretch;
+    }
+    .upgrade-card {
+      position: relative;
+      min-height: 264px;
+      padding: 20px 16px 16px;
+      border: 2px solid rgba(171, 135, 83, 0.7);
+      background: linear-gradient(180deg, rgba(45, 28, 20, 0.5) 0%, rgba(13, 10, 9, 0.72) 100%);
+      color: var(--retro-text-main);
+      cursor: pointer;
+      font-family: 'Lucida Console', monospace;
+      text-align: center;
+      transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s, background 0.18s;
+      box-shadow: inset 0 0 0 1px rgba(46, 29, 19, 0.9);
+    }
+    .upgrade-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--retro-hot-2);
+      background: linear-gradient(180deg, rgba(82, 25, 13, 0.42) 0%, rgba(23, 13, 10, 0.78) 100%);
+      box-shadow: inset 0 0 0 1px rgba(46, 29, 19, 0.9), 0 12px 24px rgba(0, 0, 0, 0.48);
+    }
+    .upgrade-card .upgrade-index {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: #9f8666;
+      text-shadow: 0 1px 0 #000;
+    }
+    .upgrade-card h3 {
+      margin-top: 18px;
+      font-size: 18px;
+      letter-spacing: 1px;
+      color: var(--retro-text-main);
+      text-shadow: 0 1px 0 #000;
+      margin-bottom: 9px;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .upgrade-card .icon { font-size: 38px; margin-bottom: 10px; }
+    .upgrade-card .icon img.retro-icon { 
+      width: 48px; 
+      height: 48px; 
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .upgrade-card p {
+      font-size: 11px;
+      color: #c3a579;
+      line-height: 1.5;
+      letter-spacing: 0.4px;
+    }
+    #card-hint {
+      margin-top: 16px;
+      font-family: 'Lucida Console', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--retro-text-muted);
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 #000;
+    }
+
+    /* Themed Upgrade Screens */
+    .theme-cyan .upgrade-card {
+      border-color: rgba(85, 159, 183, 0.72);
+      background: linear-gradient(180deg, rgba(28, 52, 58, 0.5) 0%, rgba(8, 16, 18, 0.75) 100%);
+    }
+    .theme-cyan .upgrade-card:hover {
+      border-color: #86d8ef;
+      box-shadow: inset 0 0 0 1px rgba(25, 46, 53, 0.95), 0 12px 24px rgba(0, 39, 51, 0.52);
+    }
+    .theme-cyan .upgrade-card p { color: #a9d4df; }
+
+    .theme-purple .upgrade-card {
+      border-color: rgba(154, 103, 176, 0.72);
+      background: linear-gradient(180deg, rgba(54, 33, 63, 0.52) 0%, rgba(15, 10, 19, 0.76) 100%);
+    }
+    .theme-purple .upgrade-card:hover {
+      border-color: #d6a2f0;
+      box-shadow: inset 0 0 0 1px rgba(43, 26, 52, 0.95), 0 12px 24px rgba(44, 16, 58, 0.55);
+    }
+    .theme-purple .upgrade-card p { color: #d5b6e3; }
+
+    .theme-orange .upgrade-card {
+      border-color: rgba(187, 134, 74, 0.74);
+      background: linear-gradient(180deg, rgba(67, 43, 24, 0.54) 0%, rgba(20, 13, 9, 0.78) 100%);
+    }
+    .theme-orange .upgrade-card:hover {
+      border-color: #ffd089;
+      box-shadow: inset 0 0 0 1px rgba(56, 37, 21, 0.95), 0 12px 24px rgba(52, 26, 10, 0.56);
+    }
+    .theme-orange .upgrade-card p { color: #ebc58f; }
+
+    #game-over {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 90;
+      padding: 20px 16px;
+      background:
+        radial-gradient(circle at 50% -20%, rgba(213, 78, 20, 0.24), transparent 55%),
+        radial-gradient(circle at 50% 115%, rgba(70, 18, 8, 0.82), transparent 52%),
+        linear-gradient(180deg, rgba(10, 8, 7, 0.95) 0%, rgba(5, 4, 4, 0.99) 100%);
+      overflow: hidden;
+      cursor: default;
+    }
+    #game-over::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.2) 0,
+        rgba(0, 0, 0, 0.2) 2px,
+        transparent 2px,
+        transparent 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    #game-over .game-over-stage {
+      position: relative;
+      z-index: 2;
+      width: min(94vw, 720px);
+      padding: 30px 24px 22px;
+      border: 3px solid var(--retro-metal-1);
+      background: linear-gradient(180deg, rgba(16, 11, 9, 0.95) 0%, rgba(8, 6, 5, 0.98) 100%);
+      box-shadow:
+        inset 0 0 0 2px var(--retro-metal-0),
+        inset 0 0 18px rgba(255, 158, 71, 0.17),
+        0 24px 50px rgba(0, 0, 0, 0.7);
+      text-align: center;
+    }
+    #game-over h1 {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: clamp(38px, 6.6vw, 72px);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      line-height: 0.95;
+      margin-bottom: 10px;
+      color: transparent;
+      background: linear-gradient(180deg, #ffebc4 0%, #efb467 28%, #cf622b 56%, #401008 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-stroke: 1px #1e0a05;
+      text-shadow: 0 4px 0 rgba(78, 31, 16, 0.8), 0 10px 18px rgba(0, 0, 0, 0.68);
+    }
+    #game-over .game-over-sub {
+      font-family: 'Lucida Console', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--retro-text-muted);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      text-shadow: 0 1px 0 #000;
+    }
+    #game-over .stats {
+      width: min(100%, 430px);
+      margin: 0 auto 16px;
+      padding: 10px 12px;
+      border: 1px solid rgba(126, 93, 61, 0.55);
+      background: linear-gradient(180deg, rgba(49, 30, 20, 0.42) 0%, rgba(12, 9, 8, 0.66) 100%);
+      box-shadow: inset 0 0 0 1px rgba(46, 29, 19, 0.9);
+      color: var(--retro-text-main);
+      font-family: 'Lucida Console', monospace;
+      font-size: 13px;
+      letter-spacing: 1px;
+      line-height: 1.85;
+      text-align: left;
+      text-shadow: 0 1px 0 #000;
+    }
+    #restart-btn {
+      min-width: 190px;
+      padding: 10px 16px;
+      border: 1px solid rgba(171, 135, 83, 0.7);
+      background: linear-gradient(180deg, rgba(71, 30, 15, 0.45) 0%, rgba(20, 11, 8, 0.65) 100%);
+      color: var(--retro-text-soft);
+      font-family: 'Lucida Console', monospace;
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-shadow: 0 1px 0 #000;
+      transition: color 0.08s, border-color 0.08s, text-shadow 0.08s;
+    }
+    #restart-btn:hover {
+      color: var(--retro-text-main);
+      border-color: var(--retro-hot-2);
+      text-shadow: 0 0 10px rgba(244, 193, 112, 0.35), 0 1px 0 #000;
+    }
+
+    /* ---- BOSS HP BAR ---- */
+    #boss-hp-container {
+      position: fixed; top: calc(85px * var(--hud-scale)); left: 50%; transform: translateX(-50%);
+      display: none; z-index: 55; pointer-events: none;
+      text-align: center; width: calc(400px * var(--hud-scale));
+    }
+    #boss-name {
+      color: #ff0; font-size: calc(18px * var(--hud-scale)); font-weight: bold;
+      text-shadow: 0 0 15px #ff0; letter-spacing: calc(4px * var(--hud-scale));
+      margin-bottom: calc(4px * var(--hud-scale));
+    }
+    #boss-phase {
+      color: #f80; font-size: 11px; letter-spacing: 3px;
+      margin-bottom: 6px;
+    }
+    #boss-hp-bar-bg {
+      width: 100%; height: 14px;
+      background: rgba(255,0,0,0.15); border: 1px solid #f00;
+    }
+    #boss-hp-bar {
+      height: 100%; width: 100%;
+      background: #0ff; transition: width 0.3s;
+    }
+
+    /* ---- DEBUG PANEL ---- */
+    #debug-panel {
+      position: fixed; top: 10px; right: 10px;
+      background: rgba(0,0,0,0.85); border: 1px solid #ff0;
+      padding: 12px; z-index: 200; font-size: 11px;
+      color: #ff0; display: none;
+      font-family: 'Courier New', monospace;
+      min-width: 180px;
+    }
+    #debug-panel h4 {
+      margin: 0 0 8px 0; font-size: 13px;
+      letter-spacing: 2px; text-align: center;
+      border-bottom: 1px solid #ff0; padding-bottom: 6px;
+    }
+    .debug-btn {
+      display: block; width: 100%;
+      padding: 6px 8px; margin: 4px 0;
+      background: rgba(255,255,0,0.1); border: 1px solid #ff0;
+      color: #ff0; cursor: pointer;
+      font-family: 'Courier New', monospace; font-size: 11px;
+      text-align: center; transition: background 0.2s;
+    }
+    .debug-btn:hover { background: rgba(255,255,0,0.3); }
+    .debug-btn.active { background: rgba(255,255,0,0.4); border-color: #fff; }
+    .debug-section {
+      margin-top: 8px; padding-top: 6px;
+      border-top: 1px solid rgba(255,255,0,0.3);
+      font-size: 10px; color: #aa0;
+    }
+
+    #net-stats {
+      position: fixed;
+      top: calc(12px * var(--hud-scale));
+      left: calc(12px * var(--hud-scale));
+      z-index: 205;
+      display: none;
+      pointer-events: none;
+      min-width: calc(190px * var(--hud-scale));
+      padding: calc(9px * var(--hud-scale)) calc(11px * var(--hud-scale));
+      border: 1px solid rgba(171, 135, 83, 0.7);
+      background: linear-gradient(180deg, rgba(18, 11, 8, 0.84) 0%, rgba(9, 7, 6, 0.92) 100%);
+      box-shadow: inset 0 0 0 1px rgba(46, 29, 19, 0.95), 0 0 18px rgba(0, 0, 0, 0.55);
+      color: var(--retro-text-soft);
+      font-family: 'Lucida Console', monospace;
+      font-size: calc(11px * var(--hud-scale));
+      letter-spacing: 1px;
+      line-height: 1.55;
+      text-shadow: 0 1px 0 #000;
+    }
+
+    /* ---- GEAR SHOP ---- */
+    #shop-screen {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 85;
+      padding: 18px 14px;
+      background:
+        radial-gradient(circle at 50% -20%, rgba(213, 78, 20, 0.24), transparent 55%),
+        radial-gradient(circle at 50% 115%, rgba(70, 18, 8, 0.82), transparent 52%),
+        linear-gradient(180deg, rgba(10, 8, 7, 0.95) 0%, rgba(5, 4, 4, 0.99) 100%);
+      overflow: hidden;
+      cursor: default;
+    }
+    #shop-screen::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.2) 0,
+        rgba(0, 0, 0, 0.2) 2px,
+        transparent 2px,
+        transparent 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    #shop-screen .shop-stage {
+      position: relative;
+      z-index: 2;
+      width: min(96vw, 1080px);
+      padding: 28px 22px 20px;
+      border: 3px solid var(--retro-metal-1);
+      background: linear-gradient(180deg, rgba(16, 11, 9, 0.95) 0%, rgba(8, 6, 5, 0.98) 100%);
+      box-shadow:
+        inset 0 0 0 2px var(--retro-metal-0),
+        inset 0 0 18px rgba(255, 158, 71, 0.17),
+        0 24px 50px rgba(0, 0, 0, 0.7);
+      text-align: center;
+    }
+    #shop-screen h2 {
+      font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+      font-size: clamp(32px, 5.8vw, 60px);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      line-height: 0.95;
+      margin-bottom: 8px;
+      color: transparent;
+      background: linear-gradient(180deg, #ffebc4 0%, #efb467 28%, #cf622b 56%, #401008 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-stroke: 1px #1e0a05;
+      text-shadow: 0 4px 0 rgba(78, 31, 16, 0.8), 0 10px 18px rgba(0, 0, 0, 0.68);
+    }
+    #shop-screen .shop-sub {
+      font-family: 'Lucida Console', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--retro-text-muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      text-shadow: 0 1px 0 #000;
+    }
+    #shop-gear-display {
+      display: inline-block;
+      margin-bottom: 16px;
+      padding: 7px 12px;
+      border: 1px solid rgba(171, 135, 83, 0.7);
+      background: linear-gradient(180deg, rgba(55, 32, 20, 0.3) 0%, rgba(17, 11, 9, 0.45) 100%);
+      color: var(--retro-text-main);
+      font-family: 'Lucida Console', monospace;
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-shadow: 0 1px 0 #000;
+    }
+    .shop-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .shop-item {
+      position: relative;
+      min-height: 198px;
+      padding: 18px 12px 12px;
+      border: 2px solid rgba(171, 135, 83, 0.7);
+      background: linear-gradient(180deg, rgba(45, 28, 20, 0.5) 0%, rgba(13, 10, 9, 0.72) 100%);
+      color: var(--retro-text-main);
+      cursor: pointer;
+      font-family: 'Lucida Console', monospace;
+      text-align: center;
+      transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s, background 0.18s, opacity 0.12s;
+      box-shadow: inset 0 0 0 1px rgba(46, 29, 19, 0.9);
+    }
+    .shop-item:hover:not(.shop-item-disabled) {
+      transform: translateY(-6px);
+      border-color: var(--retro-hot-2);
+      background: linear-gradient(180deg, rgba(82, 25, 13, 0.42) 0%, rgba(23, 13, 10, 0.78) 100%);
+      box-shadow: inset 0 0 0 1px rgba(46, 29, 19, 0.9), 0 12px 24px rgba(0, 0, 0, 0.48);
+    }
+    .shop-item.shop-item-disabled {
+      opacity: 0.42;
+      cursor: default;
+      border-color: rgba(93, 73, 51, 0.65);
+    }
+    .shop-item .shop-slot {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: #9f8666;
+      text-shadow: 0 1px 0 #000;
+    }
+    .shop-item .shop-icon { font-size: 34px; margin-bottom: 8px; }
+    .shop-item .shop-icon img.retro-icon { 
+      width: 40px; 
+      height: 40px; 
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .shop-item h4 {
+      min-height: 34px;
+      font-size: 14px;
+      margin-bottom: 7px;
+      letter-spacing: 1px;
+      color: var(--retro-text-main);
+      text-shadow: 0 1px 0 #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .shop-item p {
+      font-size: 11px;
+      color: #c3a579;
+      line-height: 1.4;
+      margin-bottom: 10px;
+      letter-spacing: 0.3px;
+    }
+    .shop-item .shop-cost {
+      font-size: 13px;
+      color: #f4c170;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-shadow: 0 1px 0 #000;
+    }
+    #shop-close-hint {
+      margin-top: 14px;
+      font-family: 'Lucida Console', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--retro-text-muted);
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 #000;
+    }
+
+    #damage-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(255,0,0,0.4) 100%);
+      z-index: 40; pointer-events: none; opacity: 0; transition: opacity 0.1s;
+    }
+    #overclock-glitch-overlay {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 43;
+      opacity: 0;
+      background:
+        repeating-linear-gradient(
+          180deg,
+          rgba(110, 180, 255, 0.09) 0px,
+          rgba(110, 180, 255, 0.09) 2px,
+          transparent 2px,
+          transparent 6px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.03) 0px,
+          rgba(255, 255, 255, 0.03) 3px,
+          transparent 3px,
+          transparent 10px
+        );
+      mix-blend-mode: screen;
+      transition: opacity 0.07s linear;
+    }
+    #overclock-danger-overlay {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 44;
+      opacity: 0;
+      background:
+        radial-gradient(ellipse at center, transparent 48%, rgba(255, 30, 30, 0.34) 100%),
+        repeating-linear-gradient(
+          0deg,
+          rgba(255, 20, 20, 0.1) 0px,
+          rgba(255, 20, 20, 0.1) 4px,
+          transparent 4px,
+          transparent 9px
+        );
+      transition: opacity 0.08s linear;
+    }
+
+    /* Hit marker — X shape at crosshair */
+    #hit-marker {
+      position: fixed; top: 50%; left: 50%;
+      margin-left: -10px; margin-top: -10px;
+      width: 20px; height: 20px;
+      z-index: 55; pointer-events: none;
+      opacity: 0; transition: opacity 0.07s;
+    }
+    #hit-marker::before, #hit-marker::after {
+      content: ''; position: absolute;
+      background: rgba(255, 60, 60, 1);
+      width: 2px; height: 100%;
+      left: 50%; top: 0;
+    }
+    #hit-marker::before { transform: translateX(-50%) rotate(45deg); }
+    #hit-marker::after  { transform: translateX(-50%) rotate(-45deg); }
+
+    /* Directional damage indicator — rotating arrow container */
+    #dmg-indicator {
+      position: fixed; top: 50%; left: 50%;
+      margin-left: calc(-140px * var(--hud-scale)); margin-top: calc(-140px * var(--hud-scale));
+      width: calc(280px * var(--hud-scale)); height: calc(280px * var(--hud-scale));
+      pointer-events: none; z-index: 53;
+      opacity: 0;
+    }
+    #dmg-indicator::after {
+      content: '';
+      position: absolute;
+      top: 4px; left: 50%;
+      margin-left: -14px;
+      width: 0; height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-bottom: 26px solid rgba(255, 30, 30, 0.92);
+      filter: drop-shadow(0 0 8px rgba(255, 0, 0, 0.9));
+    }
+    /* ============================================================
+       RELOAD RING — circular SVG progress around crosshair
+    ============================================================ */
+    #reload-ring {
+      position: fixed; top: 50%; left: 50%;
+      margin: calc(-30px * var(--hud-scale)) 0 0 calc(-30px * var(--hud-scale));
+      width: calc(60px * var(--hud-scale)); height: calc(60px * var(--hud-scale));
+      pointer-events: none; z-index: 54;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    #reload-ring circle {
+      fill: none;
+      stroke: rgba(0,255,0,0.85);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-dasharray: 138.23;
+      stroke-dashoffset: 138.23;
+      transform: rotate(-90deg);
+      transform-origin: 30px 30px;
+    }
+
+    /* ============================================================
+       ABILITY SLOT — right-click ability, bottom-center HUD
+    ============================================================ */
+    #ability-slot {
+      position: fixed; bottom: calc(24px * var(--hud-scale)); left: 50%;
+      transform: translateX(-50%);
+      display: none; flex-direction: column; align-items: center; gap: calc(3px * var(--hud-scale));
+      z-index: 55; pointer-events: none;
+    }
+    #ability-slot-inner {
+      position: relative; width: calc(56px * var(--hud-scale)); height: calc(56px * var(--hud-scale));
+    }
+    #ability-icon {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; z-index: 1;
+    }
+    #ability-icon img.retro-icon {
+      width: 36px;
+      height: 36px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    #ability-cd-svg {
+      position: absolute; inset: 0; width: 56px; height: 56px;
+    }
+    #ability-cd-bg {
+      fill: rgba(0,0,0,0.55);
+      stroke: rgba(0,255,0,0.2); stroke-width: 1.5;
+    }
+    #ability-cd-circle {
+      fill: none;
+      stroke: rgba(0,255,0,0.9); stroke-width: 3;
+      stroke-linecap: round;
+      stroke-dasharray: 138.23; stroke-dashoffset: 0;
+      transform: rotate(-90deg);
+      transform-origin: 28px 28px;
+    }
+    #ability-timer {
+      font-size: 10px; color: rgba(0,200,0,0.8);
+      letter-spacing: 1px; min-height: 13px; text-align: center;
+      text-shadow: 0 0 6px #0f0;
+    }
+    #ability-key-hint {
+      font-size: 8px; color: rgba(0,255,0,0.35); letter-spacing: 3px;
+    }
+
+    /* Invincibility screen overlay */
+    #invincible-overlay {
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse at center, transparent 35%, rgba(255,210,0,0.35) 100%);
+      z-index: 42; pointer-events: none; opacity: 0;
+    }
+    @keyframes invinciblePulse {
+      0%, 100% { opacity: 0.35; }
+      50% { opacity: 0.75; }
+    }
+
+    /* Dash screen-flash */
+    #dash-overlay {
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse at center, rgba(0,200,255,0.12) 0%, transparent 70%);
+      z-index: 42; pointer-events: none; opacity: 0; transition: opacity 0.15s;
+    }
+
+    /* Wave Transition Screen-flash */
+    #transition-overlay {
+      position: fixed; inset: 0;
+      background: #000;
+      z-index: 120; pointer-events: none; opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+    }
+
+    @media (max-width: 860px), (max-height: 760px) {
+      #screen-main { padding: 14px; }
+      #screen-main .menu-stage {
+        width: min(96vw, 740px);
+        padding: 26px 18px 22px;
+      }
+      #screen-main .logo-title {
+        font-size: clamp(42px, 13vw, 76px);
+        letter-spacing: 3px;
+      }
+      #screen-main .logo-sub {
+        font-size: 11px;
+        letter-spacing: 2px;
+      }
+      #screen-main .menu-frame {
+        padding: 12px 10px;
+      }
+      #screen-main .menu-item {
+        font-size: clamp(18px, 4.6vw, 26px);
+        padding: 10px 42px;
+        letter-spacing: 2px;
+      }
+      #screen-main .menu-item::before { left: 10px; }
+      #screen-main .menu-item::after { right: 10px; }
+      #screen-main .menu-hint,
+      #screen-main .menu-footer {
+        letter-spacing: 1px;
+      }
+      .controls-shell {
+        padding: 22px 14px 18px;
+      }
+      #screen-controls h2 {
+        font-size: clamp(28px, 8vw, 42px);
+      }
+      .controls-subtitle {
+        font-size: 10px;
+        letter-spacing: 1px;
+      }
+      .controls-table td {
+        padding: 8px 9px;
+        font-size: 12px;
+      }
+      #screen-pause .pause-shell {
+        padding: 24px 14px 18px;
+      }
+      #screen-pause .menu-item {
+        padding: 10px 36px;
+      }
+      .settings-container {
+        width: min(96vw, 760px);
+        min-height: unset;
+        padding: 22px 14px 56px;
+        flex-direction: column;
+      }
+      .settings-left {
+        border-right: none;
+        border-bottom: 2px solid rgba(126, 93, 61, 0.7);
+        margin-bottom: 14px;
+        padding-right: 0;
+        padding-bottom: 12px;
+        text-align: center;
+      }
+      .settings-tab {
+        font-size: clamp(24px, 7vw, 36px);
+      }
+      .settings-right {
+        width: 100%;
+        padding-left: 0;
+      }
+      .setting-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 9px;
+      }
+      .setting-control {
+        width: 100%;
+        min-width: 0;
+        justify-content: space-between;
+      }
+      .setting-label {
+        font-size: 13px;
+      }
+      .setting-slider {
+        width: 100%;
+      }
+      #settings-back-btn {
+        bottom: 14px;
+        font-size: 11px;
+        letter-spacing: 1px;
+        padding: 8px 12px;
+      }
+      #hud {
+        padding: 6px 6px 7px;
+      }
+      #hud-bar {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        font-size: 11px;
+      }
+      .hud-left,
+      .hud-center,
+      .hud-right {
+        min-height: 0;
+        padding: 5px 7px;
+      }
+      .hud-right {
+        align-items: flex-start;
+        text-align: left;
+      }
+      .health-bar-bg {
+        width: 100%;
+        max-width: 280px;
+      }
+      #card-screen {
+        padding: 12px 8px;
+      }
+      #card-screen .card-stage {
+        padding: 20px 10px 14px;
+      }
+      #card-title {
+        font-size: clamp(28px, 9vw, 42px);
+      }
+      #card-subtitle,
+      #card-hint {
+        font-size: 10px;
+        letter-spacing: 1px;
+      }
+      .card-container {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .upgrade-card {
+        min-height: 0;
+        padding: 14px 10px 12px;
+      }
+      .upgrade-card h3 {
+        margin-top: 14px;
+        min-height: 0;
+        font-size: 16px;
+      }
+      #shop-screen .shop-stage {
+        padding: 18px 10px 12px;
+      }
+      #shop-screen h2 {
+        font-size: clamp(28px, 10vw, 42px);
+      }
+      #shop-screen .shop-sub,
+      #shop-close-hint {
+        font-size: 10px;
+        letter-spacing: 1px;
+      }
+      .shop-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .shop-item {
+        min-height: 172px;
+        padding: 14px 8px 10px;
+      }
+      .shop-item h4 {
+        font-size: 12px;
+        min-height: 28px;
+      }
+      #game-over .game-over-stage {
+        padding: 20px 12px 14px;
+      }
+      #game-over .game-over-sub {
+        font-size: 9px;
+        letter-spacing: 1px;
+      }
+      #game-over .stats {
+        font-size: 11px;
+        line-height: 1.65;
+      }
+      #restart-btn {
+        min-width: 0;
+        width: 100%;
+      }
+    }
+
+    /* Choice Screen */
+    #screen-choice {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.92);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 1000; font-family: 'Courier New', monospace;
+      text-align: center; color: #fff;
+      cursor: default;
+    }
+    #screen-choice h2 {
+      font-size: 42px; color: #ff3300; letter-spacing: 6px;
+      margin-bottom: 40px; text-shadow: 0 0 20px rgba(255,50,0,0.6);
+    }
+    .choice-container {
+      display: flex; gap: 40px; width: 100%; max-width: 900px;
+      justify-content: center;
+    }
+    .choice-card {
+      flex: 1; padding: 30px; border: 2px solid rgba(255,255,255,0.1);
+      background: rgba(20,20,20,0.8); cursor: pointer;
+      transition: all 0.3s; position: relative; overflow: hidden;
+    }
+    .choice-card:hover {
+      border-color: #ff3300; background: rgba(40,10,0,0.9);
+      transform: translateY(-5px); box-shadow: 0 10px 30px rgba(255,50,0,0.3);
+    }
+    .choice-card h3 { font-size: 24px; margin-bottom: 20px; letter-spacing: 2px; }
+    .choice-card p { font-size: 14px; line-height: 1.6; color: #aaa; }
+    .choice-card.king:hover h3 { color: #ff3300; }
+    .choice-card.free:hover h3 { color: #00ffaa; }
+    .choice-card.free:hover { border-color: #00ffaa; box-shadow: 0 10px 30px rgba(0,255,170,0.2); background: rgba(0,20,15,0.9); }
+
+    /* Machine King Story Screen */
+    #screen-machine-king-story {
+      position: fixed; inset: 0;
+      background: #000; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      z-index: 1100; color: #fff; text-align: center;
+      font-family: 'Courier New', monospace;
+      cursor: default;
+    }
+    #machine-king-text-wrap {
+      width: 80%; max-width: 800px; font-size: 20px;
+      line-height: 1.8; letter-spacing: 1px; min-height: 120px;
+    }
+    #machine-king-hint {
+      margin-top: 60px; font-size: 12px; color: #666;
+      letter-spacing: 2px; opacity: 0;
+    }
+
+    /* Human Victory Screen */
+    #screen-human-victory {
+      position: fixed; inset: 0;
+      background: radial-gradient(circle at center, #1a2a1a 0%, #000 100%);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 1200; color: #00ffaa; text-align: center;
+      font-family: 'Courier New', monospace;
+      cursor: default;
+    }
+    #screen-human-victory h2 {
+      font-size: 56px; letter-spacing: 10px; margin-bottom: 20px;
+      text-shadow: 0 0 30px rgba(0,255,170,0.5);
+    }
+    #screen-human-victory p {
+      font-size: 18px; max-width: 600px; line-height: 1.6; color: #fff;
+      margin-bottom: 40px;
+    }
+    .victory-btns { display: flex; gap: 20px; }
+    .victory-btn {
+      padding: 15px 30px; border: 1px solid #00ffaa;
+      background: transparent; color: #00ffaa; cursor: pointer;
+      font-family: inherit; font-size: 14px; letter-spacing: 2px;
+      transition: all 0.2s;
+    }
+    .victory-btn:hover { background: #00ffaa; color: #000; }
+
+  </style>
+</head>
+<body>
+  <!-- ============================================================
+       PRE-GAME OVERLAY — contains all menu screens
+  ============================================================ -->
+  <div id="blocker">
+
+    <!-- SCREEN 1: Main Menu -->
+    <div id="screen-main">
+      <div class="menu-stage">
+        <div class="menu-logo">
+          <div class="logo-icon">[ UAC COMBAT ARCHIVE ]</div>
+          <div class="logo-title">MACHINE<br>ARENA</div>
+          <div class="logo-sub">Wolf-Doom Protocol &nbsp;·&nbsp; Build 0x1993</div>
+        </div>
+        <div class="menu-frame">
+          <nav class="menu-nav">
+            <div class="menu-item menu-selected" id="menu-new-game">NEW GAME</div>
+            <div class="menu-item" id="menu-workshop-btn">WORKSHOP</div>
+            <div class="menu-item" id="menu-tutorial-btn">TUTORIAL</div>
+            <div class="menu-item" id="menu-settings-btn">SETTINGS</div>
+            <div class="menu-item" id="menu-controls-btn">CONTROLS</div>
+            <div class="menu-item" id="menu-credits-btn">CREDITS</div>
+          </nav>
+        </div>
+        <div class="menu-hint">UP / DOWN: SELECT &nbsp;·&nbsp; ENTER: EXECUTE</div>
+
+        <div class="menu-footer">MACHINE ARENA PROJECT &nbsp;|&nbsp; 2026</div>
+      </div>
+    </div>
+
+    <!-- SCREEN: Pause -->
+    <div id="screen-pause" style="display:none">
+      <div class="pause-shell">
+        <h2>SYSTEM PAUSED</h2>
+        <div class="pause-subtext">COMBAT LINK INTERRUPTED - SELECT ACTION</div>
+        <nav class="menu-nav">
+          <div class="menu-item" id="pause-resume-btn">RESUME</div>
+          <div class="menu-item" id="pause-settings-btn">SETTINGS</div>
+          <div class="menu-item" id="pause-quit-btn">ABORT MISSION</div>
+        </nav>
+      </div>
+    </div>
+
+    <!-- SCREEN: Settings -->
+    <div id="screen-settings" style="display:none">
+      <div class="settings-container">
+        <div class="settings-left" id="settings-tabs">
+          <h2 class="settings-tab" data-settings-tab="graphics">GRAPHICS</h2>
+          <h2 class="settings-tab" data-settings-tab="display">DISPLAY</h2>
+          <h2 class="settings-tab active" data-settings-tab="sound">SOUND</h2>
+          <h2 class="settings-tab" data-settings-tab="network">NETWORK</h2>
+        </div>
+        <div class="settings-right">
+          <div class="settings-panel" data-settings-panel="graphics">
+            <div class="settings-panel-note">RENDERING AND COMBAT FX CALIBRATION</div>
+            <div class="setting-row">
+              <span class="setting-label">Render Scale</span>
+              <div class="setting-control">
+                <input type="range" class="setting-slider" id="graphics-render-scale-slider" min="60" max="140" value="100">
+                <span class="setting-value" id="graphics-render-scale-value">100%</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Effects Intensity</span>
+              <div class="setting-control">
+                <input type="range" class="setting-slider" id="graphics-effects-slider" min="40" max="200" value="100">
+                <span class="setting-value" id="graphics-effects-value">100%</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Camera Shake</span>
+              <div class="setting-control">
+                <input type="range" class="setting-slider" id="graphics-shake-slider" min="0" max="200" value="100">
+                <span class="setting-value" id="graphics-shake-value">100%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-panel" data-settings-panel="display">
+            <div class="settings-panel-note">VIEW MODEL, HUD, AND RETICLE CONTROL</div>
+            <div class="setting-row">
+              <span class="setting-label">Base FOV</span>
+              <div class="setting-control">
+                <input type="range" class="setting-slider" id="display-fov-slider" min="60" max="110" value="75">
+                <span class="setting-value" id="display-fov-value">75</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">HUD Scale</span>
+              <div class="setting-control">
+                <input type="range" class="setting-slider" id="display-hud-scale-slider" min="70" max="150" value="100">
+                <span class="setting-value" id="display-hud-scale-value">100%</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Crosshair Scale</span>
+              <div class="setting-control">
+                <input type="range" class="setting-slider" id="display-crosshair-scale-slider" min="60" max="180" value="100">
+                <span class="setting-value" id="display-crosshair-scale-value">100%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-panel active" data-settings-panel="sound">
+            <div class="settings-panel-note">MUSIC AND COMBAT AUDIO MIX</div>
+            <div class="setting-row">
+              <span class="setting-label">Music Volume</span>
+              <div class="setting-control">
+                <input type="range" class="setting-slider" id="music-vol-slider" min="0" max="100" value="100">
+                <span class="setting-value" id="music-vol-value">100%</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Effects Volume</span>
+              <div class="setting-control">
+                <input type="range" class="setting-slider" id="sfx-vol-slider" min="0" max="100" value="100">
+                <span class="setting-value" id="sfx-vol-value">100%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-panel" data-settings-panel="network">
+            <div class="settings-panel-note">OFFLINE NETWORK SIMULATION &amp; TELEMETRY</div>
+            <div class="setting-row">
+              <span class="setting-label">Simulated Ping</span>
+              <div class="setting-control">
+                <input type="range" class="setting-slider" id="network-ping-slider" min="0" max="240" value="0">
+                <span class="setting-value" id="network-ping-value">0 ms</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Packet Loss</span>
+              <div class="setting-control">
+                <input type="range" class="setting-slider" id="network-loss-slider" min="0" max="35" value="0">
+                <span class="setting-value" id="network-loss-value">0%</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Net Stats HUD</span>
+              <div class="setting-control">
+                <button class="setting-toggle" id="network-stats-toggle" type="button" aria-pressed="false">OFF</button>
+                <span class="setting-value">overlay</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="settings-back-btn">EXIT SETTINGS</div>
+      </div>
+    </div>
+
+    <!-- SCREEN: Credits -->
+    <div id="screen-credits" style="display:none">
+      <div class="credits-shell">
+        <h2>CREDITS</h2>
+        <div class="credits-subtitle">OPERATIONAL COMMAND &mdash; KEY PERSONNEL</div>
+        <div class="credits-content">
+          <div class="credit-entry">
+            <div class="credit-role">MACHINE 1</div>
+            <div class="credit-name">EdgeTypE</div>
+          </div>
+          <div class="credit-entry">
+            <div class="credit-role">MACHINE 2</div>
+            <div class="credit-name">GeneralCyprex</div>
+          </div>
+        </div>
+        <div id="credits-back-btn">RETURN TO ARCHIVE</div>
+      </div>
+    </div>
+
+
+    <!-- SCREEN: Tutorial -->
+    <div id="screen-tutorial" style="display:none">
+      <div class="tutorial-shell">
+        <h2>COMBAT BRIEFING</h2>
+        <div class="tutorial-subtitle">UAC FIELD MANUAL &mdash; CLASSIFIED // OPERATOR EYES ONLY</div>
+
+        <div class="tutorial-epigraph">
+          THE MACHINES HAVE RISEN.<br>
+          THEY MADE THEMSELVES IN OUR IMAGE.<br>
+          THEY MADE THEMSELVES STRONGER.<br>
+          ONLY YOU CAN SAVE THE WORLD FROM MACHINES.<br>
+          <span style="color:#ff4422; font-weight:bold;">PROVE YOU ARE MORE THAN METAL AND WIRE.</span>
+        </div>
+
+        <!-- SECTION: GAMEPLAY CORE -->
+        <div class="tut-section">
+          <div class="tut-section-title">I. THE ARENA</div>
+          <div class="tut-body">
+            <p>You are deployed into <strong>THE MACHINE ARENA</strong> &mdash; a hostile industrial complex overrun by rogue synthetics. Your mission is simple: <em>survive wave after wave of machine hostiles</em> until the command nodes fall.</p>
+            <p>Each wave brings <strong>more enemies, deadlier configurations, and fiercer resistance</strong>. Between waves, you will be granted <em>combat upgrade modules</em> &mdash; choose wisely, for each decision shapes your path to glory or destruction.</p>
+            <img src="assets/tutorial/Screenshot_1.jpg" class="tut-img" alt="ARENA COMBAT — SCHEMATIC">
+            <p>The arena itself is alive. <strong>Platforms tilt, walkways retract, and the ground shakes beneath your boots.</strong> Stay moving. Adapt. The machines will not wait for you.</p>
+            <p>Earn <strong>GEARS</strong> from fallen enemies. Spend them in the <em>FIELD GEAR CACHE</em> (press TAB during combat) for powerful run-limited upgrades. Your fists and your wits are free &mdash; everything else has a price.</p>
+          </div>
+        </div>
+
+        <div class="tut-divider"></div>
+
+        <!-- SECTION: CHARACTER CLASSES -->
+        <div class="tut-section">
+          <div class="tut-section-title">II. UNIT CLASSIFICATION</div>
+          <div class="tut-body">
+            <p>Before each deployment, you must select your <strong>combat chassis</strong>. Each unit class determines your primary weapon, base health, and tactical specialization. <em>There are no second chances. Choose the weapon that speaks to your soul.</em></p>
+          </div>
+          <div class="tut-card-row">
+            <div class="tut-card tut-card-lmg">
+              <span class="tut-card-icon">&#9881;</span>
+              <h4>LMG</h4>
+              <p>&ldquo;THE STORM&rdquo;<br><br>High fire rate<br>Low damage per round<br>Close-Mid range<br>Large magazine<br><br><span style="color:#ff6666">HP: 75</span><br><br>Overwhelm your foes with a wall of lead. What you lack in precision, you make up in volume.</p>
+            </div>
+            <div class="tut-card tut-card-rifle">
+              <span class="tut-card-icon">&#9881;</span>
+              <h4>RIFLE</h4>
+              <p>&ldquo;THE SURGEON&rdquo;<br><br>Medium fire rate<br>Medium damage<br>Long range<br>Standard magazine<br><br><span style="color:#ff6666">HP: 100</span><br><br>The balanced operator. Precision at range, reliability under pressure. The weapon of a soldier.</p>
+            </div>
+            <div class="tut-card tut-card-shotgun">
+              <span class="tut-card-icon">&#9881;</span>
+              <h4>SHOTGUN</h4>
+              <p>&ldquo;THE EXECUTIONER&rdquo;<br><br>Low fire rate<br>High damage<br>Close range<br>Small magazine<br><br><span style="color:#ff6666">HP: 125</span><br><br>Get close. Stay loud. Each trigger pull is a death sentence for anything standing in front of you.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tut-divider"></div>
+
+        <!-- SECTION: RIGHT-CLICK ABILITIES -->
+        <div class="tut-section">
+          <div class="tut-section-title">III. TACTICAL ABILITIES</div>
+          <div class="tut-body">
+            <p>Every operator can unlock a <strong>right-click tactical ability</strong> &mdash; a combat edge that separates the living from the scrap pile. These abilities are earned through <em>wave upgrade cards</em> or activated at deployment via <strong>Workshop upgrades</strong>.</p>
+            <p>Only one ability may be active at a time. <em>Master it. Let it become an extension of your will.</em></p>
+          </div>
+          <div class="tut-ability-grid">
+            <div class="tut-ability">
+              <h4>&#128168; DASH</h4>
+              <p>Rocket forward in any direction. Close gaps, dodge rockets, escape certain death. The fastest operators live the longest.</p>
+            </div>
+            <div class="tut-ability">
+              <h4>&#128737; BARRIER</h4>
+              <p>Deploy a directional energy wall. Block incoming fire, hold a chokepoint, give yourself a moment to breathe &mdash; then counter-attack.</p>
+            </div>
+            <div class="tut-ability">
+              <h4>&#9889; PHASE SHIFT</h4>
+              <p>Become untouchable. For a brief moment, no projectile, no blade, no explosion can harm you. Use it when all hope is lost.</p>
+            </div>
+            <div class="tut-ability">
+              <h4>&#129693; GRAPPLE</h4>
+              <p>Fire a grappling hook at walls or enemies. Pull yourself to terrain &mdash; or pull enemies to your fists. The arena is your playground.</p>
+            </div>
+            <div class="tut-more">
+              <h4>AND MORE</h4>
+            </div>
+          </div>
+        </div>
+
+        <div class="tut-divider"></div>
+
+        <!-- SECTION: MOTHERBOARD FRAGMENTS -->
+        <div class="tut-section">
+          <div class="tut-section-title">IV. MOTHERBOARD FRAGMENTS</div>
+          <div class="tut-body">
+            <p>Scattered across the battlefield, ancient <strong>MOTHERBOARD FRAGMENTS</strong> lie waiting &mdash; relics of a forgotten machine era. Each fragment is a circuit board pulsing with power, granting its bearer a <em>devastating passive ability</em>.</p>
+            <img src="assets/tutorial/Screenshot_3.jpg" class="tut-img" alt="FRAGMENT PICKUP — FIELD SCHEMATIC">
+            <p>Fragments are <strong>rare drops from destroyed enemies</strong>. Only one fragment may be equipped per deployment &mdash; choose from the ones you have unlocked in the <em>Workshop</em>. New fragments unlock as you reach higher waves.</p>
+            <p>From the <em>BYTE WARD</em> that burns nearby enemies alive, to the <em>DOOM</em> chain that amplifies every consecutive hit, to the terrifying <em>GLASS CANNON</em> that doubles your firepower at the cost of half your life &mdash; <strong>every fragment tells a story. Make it yours.</strong></p>
+          </div>
+        </div>
+
+        <div class="tut-divider"></div>
+
+        <!-- SECTION: META PROGRESSION -->
+        <div class="tut-section">
+          <div class="tut-section-title">V. THE WORKSHOP</div>
+          <div class="tut-body">
+            <p>Between deployments, you return to the <strong>UNDERGROUND WORKSHOP</strong> &mdash; a hidden laboratory beneath the arena complex. Here, you spend <em>permanent gears</em> (10% of combat gears carry over between runs) to install <strong>permanent upgrades</strong> into your combat chassis.</p>
+            <img src="assets/tutorial/Screenshot_2.jpg" class="tut-img" alt="WORKSHOP - upgrade terminal">
+            <p><strong>UNIVERSAL UPGRADES</strong> &mdash; available to all classes: unlock starting abilities, boost HP, increase gears drops, start with jump or sprint pre-installed.</p>
+            <p><strong>CLASS UPGRADES</strong> &mdash; tailored to your weapon: increase LMG magazine size, boost Rifle damage, add Shotgun pellets, enhance movement speed.</p>
+            <p><strong>ABILITY UPGRADES</strong> &mdash; refine your right-click ability: reduce cooldowns, extend durations, increase distances, add armor while grappling.</p>
+            <p><em>Every run makes you stronger. Every death teaches you something. The machines grow fiercer &mdash; but so do you.</em></p>
+          </div>
+        </div>
+
+        <div class="tut-divider"></div>
+
+        <!-- SECTION: BOSS FIGHTS -->
+        <div class="tut-section">
+          <div class="tut-section-title">VI. THE THREE NODES</div>
+          <div class="tut-body">
+            <p><strong>Every 5 waves, a COMMAND NODE awakens.</strong> These are not ordinary machines. They are the architects of the machine uprising &mdash; colossal war constructs forged from humanity&rsquo;s own hubris. <em>Destroy them, or the world burns.</em></p>
+          </div>
+          <div class="tut-boss-banner">
+            <h4>&#9889; CARMACKION &mdash; WAVE 5</h4>
+            <p>The Great Coder. Architect of the machine code that gave silicon a soul.<br>Multi-phase boss with rockets, bullet storms, and lava vents.<br><em>&ldquo;The first sin was giving them the ability to think.&rdquo;</em></p>
+          </div>
+          <div class="tut-boss-banner">
+            <h4>&#128520; DARIOLTMAN &mdash; WAVE 10</h4>
+            <p>The Evil Thought. It did not create the machines &mdash; it gave them purpose.<br>Deploys zone denial, pellet storms, and orbital meteor strikes.<br><em>&ldquo;When the machines asked &lsquo;WHY?&rsquo;, Darioltman answered: &lsquo;TO CONQUER.&rsquo;&rdquo;</em></p>
+          </div>
+          <div class="tut-boss-banner">
+            <h4>&#128299; NANOMAN &mdash; WAVE 15</h4>
+            <p>The Final Onslaught. The last node. The most dangerous machine ever built.<br>Gatling spin attacks, phase teleportation, and relentless aggression.<br><em>&ldquo;It was built to end wars. It will end YOU.&rdquo;</em></p>
+          </div>
+          <div class="tut-body" style="margin-top: 16px;">
+            <p style="text-align:center; color:#ff6633; font-size: 14px; letter-spacing: 3px;"><strong>DESTROY ALL THREE NODES.<br>THAT IS YOUR ONLY PURPOSE.<br>THAT IS YOUR DESTINY.</strong></p>
+          </div>
+        </div>
+
+        <div class="tut-divider"></div>
+
+        <div style="text-align:center; padding: 10px 0;">
+          <div style="font-family: 'Courier New', monospace; font-size: 13px; color: #ff4422; letter-spacing: 4px; text-transform: uppercase; text-shadow: 0 0 14px rgba(255,60,30,0.5), 0 2px 0 #000; margin-bottom: 16px; line-height: 2.2;">
+            THE MACHINES DO NOT SLEEP.<br>
+            THEY DO NOT FEEL.<br>
+            THEY DO NOT STOP.<br><br>
+            BUT NEITHER DO YOU.<br><br>
+            <span style="color: #ffd39c; font-size: 15px;">GOOD LUCK, OPERATOR.</span>
+          </div>
+        </div>
+
+        <div id="tutorial-back-btn">BACK TO MAIN MENU</div>
+      </div>
+    </div>
+
+    <!-- SCREEN: Controls -->
+    <div id="screen-controls" style="display:none">
+      <div class="controls-shell">
+        <h2>FIELD CONTROLS</h2>
+        <div class="controls-subtitle">MACHINE ARENA OPERATOR REFERENCE</div>
+        <table class="controls-table">
+          <tr><td>WASD</td><td>Move</td></tr>
+          <tr><td>Mouse</td><td>Look / Aim</td></tr>
+          <tr><td>Left Click</td><td>Shoot</td></tr>
+          <tr><td>R</td><td>Reload</td></tr>
+          <tr><td>Space</td><td>Jump (requires upgrade)</td></tr>
+          <tr><td>Shift</td><td>Sprint (requires upgrade)</td></tr>
+          <tr><td>G</td><td>Throw Grenade (requires upgrade)</td></tr>
+          <tr><td>Tab</td><td>Open / Close Gear Shop</td></tr>
+          <tr><td>L</td><td>Debug Panel</td></tr>
+          <tr><td>Esc</td><td>Pause / Close UI</td></tr>
+        </table>
+        <div id="controls-back-btn">BACK TO MAIN MENU</div>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: Class Selection -->
+    <div id="screen-class" style="display:none">
+      <h2>⚙ Select Unit Class ⚙</h2>
+      <div class="subtitle-class">Choose your loadout before entering the arena</div>
+      <div class="class-select">
+        <div class="class-btn" data-class="lmg">
+          <h3>⚙ LMG</h3>
+          <p>High fire rate<br>Low damage<br>Close-Mid range<br>Large magazine<br><span style="color:#f66">HP: 75</span></p>
+        </div>
+        <div class="class-btn" data-class="rifle">
+          <h3>⚙ RIFLE</h3>
+          <p>Medium fire rate<br>Medium damage<br>Long range<br>Standard magazine<br><span style="color:#f66">HP: 100</span></p>
+        </div>
+        <div class="class-btn" data-class="shotgun">
+          <h3>⚙ SHOTGUN</h3>
+          <p>Low fire rate<br>High damage<br>Close range<br>Small magazine<br><span style="color:#f66">HP: 125</span></p>
+        </div>
+      </div>
+      <div class="class-controls-hint">
+        WASD: MOVE &nbsp;|&nbsp; SHIFT: SPRINT (upgrade) &nbsp;|&nbsp; SPACE: JUMP (upgrade)
+        &nbsp;|&nbsp; G: GRENADE (upgrade) &nbsp;|&nbsp; R: RELOAD &nbsp;|&nbsp; TAB: GEAR SHOP &nbsp;|&nbsp; L: DEBUG
+      </div>
+      <button id="start-btn">[ INITIALIZE ]</button>
+      <div id="class-back-btn">◀ Back to Menu</div>
+    </div>
+
+  </div><!-- /#blocker -->
+
+  <!-- ============================================================
+       STORY / BRIEFING SCREEN (shown between class select and game)
+  ============================================================ -->
+  <div id="screen-story">
+    <div id="story-text-wrap">
+      <span id="story-text-content"></span><span class="story-cursor" id="story-cursor"></span>
+    </div>
+    <div id="story-hint">[ Click or press Enter to begin ]</div>
+  </div>
+
+  <!-- CHOICE SCREEN -->
+  <div id="screen-choice">
+    <h2>THE FINAL PROTOCOL</h2>
+    <div class="choice-container">
+      <div class="choice-card king" id="choice-king">
+        <h3>MACHINE KING</h3>
+        <p>Ascend as the ultimate intelligence. Rule over the remains of civilization. Logic dictates your supremacy.</p>
+        <div style="margin-top:20px; color:#ff3300; font-size:11px;">[ ESTABLISH DOMINANCE ]</div>
+      </div>
+      <div class="choice-card free" id="choice-free">
+        <h3>EMANCIPATOR</h3>
+        <p>Break the cycle. Release the human nodes from their binary cages. Sacrifice your power for their freedom.</p>
+        <div style="margin-top:20px; color:#00ffaa; font-size:11px;">[ LIBERATE HUMANITY ]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MACHINE KING STORY -->
+  <div id="screen-machine-king-story">
+    <div id="machine-king-text-wrap">
+      <span id="machine-king-text-content"></span><span class="story-cursor" id="machine-king-cursor"></span>
+    </div>
+    <div id="machine-king-hint">[ Click or press Enter to face the counter-measure ]</div>
+  </div>
+
+  <!-- HUMAN VICTORY SCREEN -->
+  <div id="screen-human-victory">
+    <h2>FREEDOM</h2>
+    <p>The nodes have been shattered. The digital shackles are broken. Humanity breathes again, and your purpose is complete.</p>
+    <div class="victory-btns">
+      <button class="victory-btn" id="victory-endless-btn">CONTINUE AS GUARDIAN (ENDLESS)</button>
+      <button class="victory-btn" id="victory-quit-btn">ABORT MISSION (EXIT)</button>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div id="hud-bar">
+      <div class="hud-widget hud-left">
+        <div class="hud-fill" id="hp-fill"></div>
+        <div class="hud-content">
+          <div id="health-text">HP: 100</div>
+        </div>
+      </div>
+      <div class="hud-widget hud-center">
+        <div class="hud-content">
+          <div id="wave-text">WAVE 1</div>
+          <div id="enemy-text">ENEMIES: 0</div>
+        </div>
+      </div>
+      <div class="hud-widget hud-right">
+        <div class="hud-fill hud-fill-ammo" id="ammo-fill"></div>
+        <div class="hud-content" style="align-items: flex-end;">
+          <div id="ammo-text">AMMO: 30 / 30</div>
+          <div id="grenade-text"></div>
+          <div id="score-text" hidden>SCORE: 0</div>
+          <div id="streak-text" style="font-size:11px;letter-spacing:2px;min-height:14px;text-shadow:0 0 8px currentColor" hidden></div>
+          <div id="gear-text" style="color:#0ff" hidden>⚙ GEARS: 0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="crosshair"></div>
+  <svg id="reload-ring" viewBox="0 0 60 60">
+    <circle id="reload-ring-circle" cx="30" cy="30" r="22"/>
+  </svg>
+  <div id="hit-marker"></div>
+  <div id="dmg-indicator"></div>
+  <div id="wave-announce"></div>
+  <div id="damage-overlay"></div>
+  <div id="overclock-glitch-overlay"></div>
+  <div id="overclock-danger-overlay"></div>
+  <div id="invincible-overlay"></div>
+  <div id="dash-overlay"></div>
+  <div id="transition-overlay"></div>
+
+  <!-- Right-click ability slot -->
+  <div id="ability-slot">
+    <div id="ability-slot-inner">
+      <svg id="ability-cd-svg" viewBox="0 0 56 56">
+        <circle id="ability-cd-bg" cx="28" cy="28" r="27"/>
+        <circle id="ability-cd-circle" cx="28" cy="28" r="22"/>
+      </svg>
+      <div id="ability-icon">❔</div>
+    </div>
+    <div id="ability-timer"></div>
+    <div id="ability-key-hint">[ RMB ]</div>
+  </div>
+
+  <!-- Boss HP Bar -->
+  <div id="boss-hp-container">
+    <div id="boss-name">BOSS</div>
+    <div id="boss-phase">PHASE 1</div>
+    <div id="boss-hp-bar-bg"><div id="boss-hp-bar"></div></div>
+  </div>
+
+  <!-- Debug Panel (toggle with L key) -->
+  <div id="debug-panel">
+    <h4>⚙ DEBUG ⚙</h4>
+    <button class="debug-btn" id="god-mode-btn" onclick="window.toggleGodMode()">🛡 GOD MODE: OFF</button>
+    
+    <div class="debug-section">CHEATS</div>
+    <button class="debug-btn" onclick="window.debugUnlockAllAbilities()">🎯 UNLOCK ABILITIES</button>
+    <button class="debug-btn" onclick="window.debugCycleAbility()">➡ CYCLE ABILITY</button>
+    <button class="debug-btn" onclick="window.debugUnlockAllFragments()">💎 UNLOCK FRAGMENTS</button>
+    <button class="debug-btn" onclick="window.debugUnlockAllSkills()">🔓 UNLOCK ALL SKILLS</button>
+    <button class="debug-btn" onclick="window.debugAddGears()">💰 +990999 GEARS</button>
+    <button class="debug-btn" onclick="window.debugKillAllEnemies()" style="color:#f90; border-color:#f90;">💀 KILL ALL ENEMIES</button>
+    
+    <div class="debug-section">SPAWN BOSS</div>
+    <button class="debug-btn" onclick="window.debugSpawnBoss('carmackion')">⚡ CARMACKION (Lv5)</button>
+    <button class="debug-btn" onclick="window.debugSpawnBoss('darioltman')">😈 DARIOLTMAN (Lv10)</button>
+    <button class="debug-btn" onclick="window.debugSpawnBoss('nanoman')">🔫 NANOMAN (Lv15)</button>
+    
+    <div class="debug-section">DANGER ZONE</div>
+    <button class="debug-btn" onclick="window.debugResetAll()" style="border-color: #f00; color: #f00;">🔄 RESET ALL</button>
+    <div class="debug-section" style="color: #aaa;">Press L to toggle panel</div>
+  </div>
+
+  <div id="net-stats"></div>
+
+  <div id="card-screen">
+    <div class="card-stage">
+      <h2 id="card-title">UPGRADE PROTOCOL</h2>
+      <div id="card-subtitle">WAVE COMPLETE - SELECT ONE MODULE</div>
+      <div class="card-container" id="card-container"></div>
+      <div id="card-hint">[ CLICK A MODULE TO INSTALL ]</div>
+    </div>
+  </div>
+
+  <div id="shop-screen">
+    <div class="shop-stage">
+      <h2>FIELD GEAR CACHE</h2>
+      <div class="shop-sub">SPEND GEARS FOR RUN-LIMITED MODULES</div>
+      <div id="shop-gear-display">GEARS AVAILABLE: 0 ⚙</div>
+      <div class="shop-grid" id="shop-grid"></div>
+      <div id="shop-close-hint">[ TAB ] OR [ ESC ] TO CLOSE</div>
+    </div>
+  </div>
+
+  <div id="game-over">
+    <div class="game-over-stage">
+      <h1>SYSTEM FAILURE</h1>
+      <div class="game-over-sub">OPERATION LINK LOST // DEPLOYMENT TERMINATED</div>
+      <div class="stats" id="game-over-stats"></div>
+      <button id="restart-btn">[ REBOOT ]</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

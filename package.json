@@ -1,0 +1,20 @@
+{
+  "name": "machine-arena",
+  "version": "1.0.0",
+  "description": "Low-poly pixelated roguelite FPS - Theme: Machines",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "three": "^0.162.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/cli": "^2.10.1",
+    "vite": "^5.1.0"
+  }
+}
