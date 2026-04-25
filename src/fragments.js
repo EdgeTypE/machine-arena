@@ -339,20 +339,30 @@ export class FragmentRuntime {
       if (this.noHitTimer >= 10.0) this._activateShell(camera);
     } else {
       const now = performance.now();
-      if (this.shieldMesh) {
-        // Outer sphere: very subtle breathe
-        this.shieldMesh.material.opacity = 0.04 + Math.sin(now * 0.003) * 0.025;
-        this.shieldMesh.rotation.y += delta * 0.4;
-        this.shieldMesh.position.copy(camera.position);
-        this.shieldMesh.position.y -= 0.65;
+      // Orbital rings follow player at ground level — never inside camera FOV
+      const base = camera.position.clone();
+      base.y -= 1.55; // ground-ish level, well below eye
+
+      if (this.shellRings) {
+        this.shellRings.forEach((ring, i) => {
+          ring.position.copy(base);
+          const speed = 0.6 + i * 0.35;
+          ring.rotation.y += delta * speed * (i % 2 === 0 ? 1 : -1);
+          // Gentle pulse on opacity
+          ring.material.opacity = 0.45 + Math.sin(now * 0.002 + i * 1.2) * 0.2;
+        });
       }
-      if (this.shieldMeshInner) {
-        // Inner wireframe: slower counter-rotation
-        this.shieldMeshInner.material.opacity = 0.25 + Math.sin(now * 0.004) * 0.1;
-        this.shieldMeshInner.rotation.y -= delta * 0.7;
-        this.shieldMeshInner.rotation.x += delta * 0.3;
-        this.shieldMeshInner.position.copy(camera.position);
-        this.shieldMeshInner.position.y -= 0.65;
+      if (this.shellNodes) {
+        this.shellNodes.forEach((node, i) => {
+          const angle = (i / this.shellNodes.length) * Math.PI * 2 + now * 0.0008;
+          const r = 1.35;
+          node.position.set(
+            base.x + Math.cos(angle) * r,
+            base.y + Math.sin(now * 0.0015 + i) * 0.18,
+            base.z + Math.sin(angle) * r
+          );
+          node.material.opacity = 0.6 + Math.sin(now * 0.003 + i * 0.9) * 0.35;
+        });
       }
     }
   }
@@ -363,31 +373,80 @@ export class FragmentRuntime {
     this.shieldDamageLeft = 250;
     this.noHitTimer       = 0;
 
-    // Outer transparent sphere
-    const geoOuter = new THREE.SphereGeometry(1.25, 16, 12);
-    const matOuter = new THREE.MeshBasicMaterial({
-      color: 0xffcc00, transparent: true, opacity: 0.06, side: THREE.DoubleSide,
-    });
-    this.shieldMesh = new THREE.Mesh(geoOuter, matOuter);
+    const base = camera.position.clone();
+    base.y -= 1.55;
 
-    // Inner wireframe for the hexagonal grid look
-    const geoInner = new THREE.IcosahedronGeometry(1.15, 1);
-    const matInner = new THREE.MeshBasicMaterial({
-      color: 0xffdd44, transparent: true, opacity: 0.35, wireframe: true,
+    // ── 3 orbital rings at different tilt angles ──
+    this.shellRings = [];
+    const ringAngles = [
+      { rx: 0,          rz: 0 },           // horizontal
+      { rx: Math.PI/3,  rz: 0 },           // tilted 60°
+      { rx: Math.PI/6,  rz: Math.PI/3 },   // oblique
+    ];
+    ringAngles.forEach(({ rx, rz }) => {
+      const geo = new THREE.TorusGeometry(1.35, 0.022, 6, 64);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xffcc00, transparent: true, opacity: 0.55,
+        depthWrite: false,
+      });
+      const ring = new THREE.Mesh(geo, mat);
+      ring.rotation.x = rx;
+      ring.rotation.z = rz;
+      ring.position.copy(base);
+      this.scene.add(ring);
+      this.shellRings.push(ring);
     });
-    this.shieldMeshInner = new THREE.Mesh(geoInner, matInner);
 
-    this.shieldMesh.position.copy(camera.position);
-    this.shieldMesh.position.y -= 0.65;
-    this.shieldMeshInner.position.copy(this.shieldMesh.position);
-    this.scene.add(this.shieldMesh);
-    this.scene.add(this.shieldMeshInner);
+    // ── 6 small glowing node spheres orbiting at ground level ──
+    this.shellNodes = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2;
+      const r = 1.35;
+      const geo = new THREE.SphereGeometry(0.055, 6, 6);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xffe566, transparent: true, opacity: 0.9,
+        depthWrite: false,
+      });
+      const node = new THREE.Mesh(geo, mat);
+      node.position.set(
+        base.x + Math.cos(angle) * r,
+        base.y,
+        base.z + Math.sin(angle) * r
+      );
+      this.scene.add(node);
+      this.shellNodes.push(node);
+    }
+
+    // Keep legacy refs null so old removal code is safe
+    this.shieldMesh      = null;
+    this.shieldMeshInner = null;
+
     this._hudMsg('◈ SHELL ACTIVE', '#ffcc00');
   }
 
   _deactivateShell() {
     this.shieldActive = false;
     this.noHitTimer   = 0;
+
+    // Remove orbital rings
+    if (this.shellRings) {
+      this.shellRings.forEach(r => {
+        this.scene.remove(r);
+        r.geometry.dispose();
+        r.material.dispose();
+      });
+      this.shellRings = null;
+    }
+    // Remove orbital nodes
+    if (this.shellNodes) {
+      this.shellNodes.forEach(n => {
+        this.scene.remove(n);
+        n.geometry.dispose();
+        n.material.dispose();
+      });
+      this.shellNodes = null;
+    }
+    // Legacy safety
     if (this.shieldMesh) {
       this.scene.remove(this.shieldMesh);
       this.shieldMesh.geometry.dispose();

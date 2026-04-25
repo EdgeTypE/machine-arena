@@ -35,6 +35,7 @@ const state = {
   gears: 0,
   damageResist: 0,
   shopOpen: false,
+  shopPurchases: 0,
   godMode: false,
   currentBoss: null,
   // Right-click ability slot
@@ -63,6 +64,7 @@ const state = {
 };
 
 const SETTINGS_STORAGE_KEY = 'machine_arena_runtime_settings_v1';
+const WAVE1_DEATHS_KEY = 'machine_arena_wave1_deaths';
 const SETTINGS_DEFAULTS = {
   audio: {
     musicVolume: 100,
@@ -290,9 +292,21 @@ let netFeedbackDropped = 0;
 // ============================================================
 const musicMenu = new Audio('./music1_alt.mp3');
 const musicGame = new Audio('./music1.mp3');
+const musicBoss = new Audio('./music2.mp3');
+const tygerSound = new Audio('./tyger.mp3');
 musicMenu.loop = true;
 musicGame.loop = true;
+musicBoss.loop = true;
 let menuMusicStarted = false;
+
+// Flexible boss music mapping
+const BOSS_MUSIC_MAP = {
+  'CARMACKION': './music2.mp3',
+  'DARIOLTMAN': './music2.mp3',
+  'NANOMAN': './music2.mp3',
+  'HUMAN REAPER': './music2.mp3',
+};
+let currentBossMusicPath = '';
 
 function tryStartMenuMusic() {
   if (menuMusicStarted) return;
@@ -328,6 +342,65 @@ function switchToGameMusic() {
       musicMenu.pause();
     }
   }, delay);
+}
+
+function switchToBossMusic(bossName) {
+  const musicPath = BOSS_MUSIC_MAP[bossName] || './music2.mp3';
+  
+  // If already playing this music, don't restart
+  if (currentBossMusicPath === musicPath && !musicBoss.paused) return;
+  
+  currentBossMusicPath = musicPath;
+  musicBoss.src = musicPath;
+  musicBoss.volume = 0;
+  musicBoss.play().catch(() => {});
+
+  const FADE_MS = 600; // Snappier transition
+  const STEPS = 30;
+  const delay = FADE_MS / STEPS;
+  let step = 0;
+  const gameStartVol = musicGame.volume;
+  const bossTargetVol = 0.7 * window.musicVolume;
+
+  const fade = setInterval(() => {
+    step++;
+    const t = step / STEPS;
+    musicGame.volume = Math.max(0, gameStartVol * (1 - t));
+    musicBoss.volume = Math.min(bossTargetVol, bossTargetVol * t);
+    if (step >= STEPS) {
+      clearInterval(fade);
+      musicGame.pause();
+    }
+  }, delay);
+}
+
+function switchBackToNormalMusic() {
+  musicGame.volume = 0;
+  musicGame.play().catch(() => {});
+
+  const FADE_MS = 800; // Snappier transition back
+  const STEPS = 40;
+  const delay = FADE_MS / STEPS;
+  let step = 0;
+  const bossStartVol = musicBoss.volume;
+  const gameTargetVol = 0.65 * window.musicVolume;
+
+  const fade = setInterval(() => {
+    step++;
+    const t = step / STEPS;
+    musicBoss.volume = Math.max(0, bossStartVol * (1 - t));
+    musicGame.volume = Math.min(gameTargetVol, gameTargetVol * t);
+    if (step >= STEPS) {
+      clearInterval(fade);
+      musicBoss.pause();
+      currentBossMusicPath = '';
+    }
+  }, delay);
+}
+
+function playTygerSound() {
+  tygerSound.volume = window.sfxVolume;
+  tygerSound.play().catch(() => { /* Expected error with placeholder */ });
 }
 
 function clampNumber(v, min, max) {
@@ -386,8 +459,17 @@ function applyAudioSettings() {
   window.sfxVolume = runtimeSettings.audio.sfxVolume / 100;
 
   if (menuMusicStarted) {
-    if (state.running) musicGame.volume = 0.65 * window.musicVolume;
-    else musicMenu.volume = 0.65 * window.musicVolume;
+    if (state.running) {
+      if (currentBossMusicPath && !musicBoss.paused) {
+        musicBoss.volume = 0.7 * window.musicVolume;
+        musicGame.volume = 0;
+      } else {
+        musicGame.volume = 0.65 * window.musicVolume;
+        musicBoss.volume = 0;
+      }
+    } else {
+      musicMenu.volume = 0.65 * window.musicVolume;
+    }
   }
   if (sfxMasterGain) {
     sfxMasterGain.gain.value = window.sfxVolume;
@@ -2811,42 +2893,42 @@ function updateAbilitySlotHUD(now) {
 const SHOP_ITEMS = [
   {
     id: 'hp_boost', name: 'ARMOR MODULE', icon: '🛡',
-    description: '+30 max HP', cost: 20,
+    description: '+30 max HP', cost: 120,
     apply: (s) => { s.maxHealth += 30; s.health = Math.min(s.health + 30, s.maxHealth); }
   },
   {
     id: 'dmg_boost', name: 'WEAPON CORE', icon: '⚡',
-    description: '+20% weapon damage', cost: 30,
+    description: '+20% weapon damage', cost: 180,
     apply: (s) => { s.weapon.damageMultiplier += 0.20; }
   },
   {
     id: 'regen_boost', name: 'NANO REPAIR+', icon: '💉',
-    description: '+5 HP/s regen', cost: 25,
+    description: '+5 HP/s regen', cost: 150,
     apply: (s) => { s.regenRate = (s.regenRate || 0) + 5; }
   },
   {
     id: 'fire_rate_boost', name: 'OVERCLOCK+', icon: '⚙',
-    description: '+15% fire rate', cost: 25,
+    description: '+15% fire rate', cost: 150,
     apply: (s) => { s.weapon.fireRateMultiplier += 0.15; }
   },
   {
     id: 'damage_resist', name: 'CARBON FIBER', icon: '🧥',
-    description: 'Take 10% less damage (max 50%)', cost: 35,
+    description: 'Take 10% less damage (max 50%)', cost: 200,
     apply: (s) => { s.damageResist = Math.min((s.damageResist || 0) + 0.1, 0.5); }
   },
   {
     id: 'ammo_cache', name: 'AMMO CACHE', icon: '📦',
-    description: '+20% magazine size', cost: 20,
+    description: '+20% magazine size', cost: 100,
     apply: (s) => { s.weapon.magSizeMultiplier += 0.20; s.weapon.currentAmmo = s.weapon.getMaxAmmo(); }
   },
   {
     id: 'full_heal', name: 'FIELD REPAIR', icon: '💚',
-    description: 'Fully restore HP', cost: 40,
+    description: 'Fully restore HP', cost: 250,
     apply: (s) => { s.health = s.maxHealth; }
   },
   {
     id: 'speed_boost', name: 'SERVO BOOST', icon: '🏃',
-    description: '+12% movement speed', cost: 22,
+    description: '+12% movement speed', cost: 130,
     apply: (s) => { s.weapon.moveSpeed *= 1.12; }
   },
 ];
@@ -2855,7 +2937,10 @@ function renderShop() {
   shopGearDisplay.textContent = `GEARS AVAILABLE: ${state.gears} ⚙`;
   shopGrid.innerHTML = '';
   SHOP_ITEMS.forEach((item, index) => {
-    const canAfford = state.gears >= item.cost;
+    // Dynamic cost: base cost * (1.5 ^ shopPurchases)
+    const currentCost = Math.floor(item.cost * Math.pow(1.5, state.shopPurchases));
+    const canAfford = state.gears >= currentCost;
+
     const el = document.createElement('div');
     el.className = 'shop-item' + (canAfford ? '' : ' shop-item-disabled');
     el.innerHTML = `
@@ -2863,13 +2948,14 @@ function renderShop() {
       <div class="shop-icon">${getIconImage(item.icon)}</div>
       <h4>${item.name}</h4>
       <p>${item.description}</p>
-      <div class="shop-cost">${item.cost} ⚙</div>
+      <div class="shop-cost">${currentCost} ⚙</div>
     `;
     if (canAfford) {
       el.addEventListener('click', () => {
-        state.gears -= item.cost;
+        state.gears -= currentCost;
         item.apply(state);
-        renderShop(); // re-render to update affordability
+        state.shopPurchases++; // Increment purchase counter for run-based price hike
+        renderShop(); // re-render to update affordability and prices
         updateHUD();
       });
     }
@@ -2980,6 +3066,7 @@ startBtn.addEventListener('click', () => {
 });
 
 document.getElementById('restart-btn').addEventListener('click', () => {
+  sessionStorage.setItem('machine_arena_reboot_workshop', 'true');
   location.reload();
 });
 
@@ -3121,6 +3208,7 @@ document.addEventListener('keydown', (e) => {
 // START GAME
 // ============================================================
 function startGame() {
+  state.shopPurchases = 0;
   blocker.style.display = 'none';
   hud.style.display = 'block';
   crosshair.style.display = 'block';
@@ -3146,6 +3234,8 @@ function startGame() {
   state.damageResist = 0;
   state.shopOpen = false;
   state.currentBoss = null;
+  musicBoss.pause();
+  currentBossMusicPath = '';
   state.rightClickAbility = null;
   if (state.rendezvousMesh) {
     scene.remove(state.rendezvousMesh);
@@ -3285,6 +3375,7 @@ function startNextWave() {
 
   if (isBossWave) {
     playBossAppearSound();
+    switchToBossMusic(bossName);
   }
 
   // Reveal jump pads from wave 5 onward
@@ -3324,6 +3415,20 @@ function startNextWave() {
 function onWaveComplete() {
   state.currentBoss = null;
   updateBossHUD();
+
+  // Trigger boss music immediately if next wave is boss
+  const nextWave = state.wave + 1;
+  if (nextWave % 5 === 0) {
+    let bossName = 'CARMACKION';
+    if (nextWave >= 15) bossName = 'NANOMAN';
+    else if (nextWave >= 10) bossName = 'DARIOLTMAN';
+    switchToBossMusic(bossName);
+  }
+
+  // Reset Wave 1 death streak if successfully completed
+  if (state.wave === 1) {
+    localStorage.setItem(WAVE1_DEATHS_KEY, '0');
+  }
 
   // Unlock fragments for the wave just completed
   const meta = loadMeta();
@@ -4955,6 +5060,9 @@ function gameOver() {
   }
   hud.style.display = 'none';
   crosshair.style.display = 'none';
+  musicGame.pause();
+  musicBoss.pause();
+  currentBossMusicPath = '';
   cleanupMortarProjectiles();
 
   let endMsg = "YOU HAVE BEEN SCRAPPED";
@@ -4989,6 +5097,18 @@ function gameOver() {
     CLASS: ${state.playerClass.toUpperCase()}
   `;
   gameOverScreen.style.display = 'flex';
+
+  // Wave 1 death streak logic
+  if (state.wave === 1) {
+    const deaths = (parseInt(localStorage.getItem(WAVE1_DEATHS_KEY)) || 0) + 1;
+    localStorage.setItem(WAVE1_DEATHS_KEY, deaths.toString());
+    if (deaths >= 5) {
+      playTygerSound();
+    }
+  } else {
+    // Reached later waves, streak broken
+    localStorage.setItem(WAVE1_DEATHS_KEY, '0');
+  }
 }
 
 // ============================================================
@@ -5708,6 +5828,7 @@ function animate() {
       if (!enemy.alive && state.currentBoss === enemy) {
         state.currentBoss = null;
         playBossDeathSound();
+        switchBackToNormalMusic();
         cleanupCarmackionProjectiles();
         cleanupDarioltman();
         cleanupNanoman();
@@ -5866,5 +5987,11 @@ window.addEventListener('resize', () => {
 // INIT — show main menu on load
 // ============================================================
 initSettingsUI();
-showMenuScreen('screen-main');
+if (sessionStorage.getItem('machine_arena_reboot_workshop') === 'true') {
+  sessionStorage.removeItem('machine_arena_reboot_workshop');
+  openLabWorkshop();
+} else {
+  showMenuScreen('screen-main');
+}
 updateMenuCursor();
+
