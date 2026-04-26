@@ -5140,8 +5140,8 @@ function explodeGrenade(g) {
   g.mesh.geometry.dispose();
   g.mesh.material.dispose();
 
-  const BLAST_RADIUS = 6;
-  const BLAST_DAMAGE = 80;
+  const BLAST_RADIUS = 10;
+  const BLAST_DAMAGE = 400;
 
   for (const enemy of state.enemies) {
     if (!enemy.alive) continue;
@@ -5155,8 +5155,9 @@ function explodeGrenade(g) {
     }
   }
 
-  particleSystem.emit(g.mesh.position.clone(), 0xff8800, 20);
-  particleSystem.emit(g.mesh.position.clone(), 0xffff00, 15);
+  particleSystem.emit(g.mesh.position.clone(), 0xff8800, 50);
+  particleSystem.emit(g.mesh.position.clone(), 0xffff00, 40);
+  particleSystem.emit(g.mesh.position.clone(), 0xffffff, 20);
   playExplosionSound();
 }
 

@@ -38,6 +38,28 @@ const CORRIDORS = [
   { cls: 'shotgun', xCenter:  8, xMin:  6.25, xMax:  9.75, colorHex: 0x9900ff, sign: '#bb33ff', light: 0x9900ff },
 ];
 const BACK_WALL_Z = -12;
+
+const HINT_MESSAGES = [
+  "Collect Gears from defeated enemies to purchase meta-upgrades.",
+  "The build computer allows you to customize your starting loadout.",
+   'Did you know you can punch by pressing F?',
+ 'You can punch while reloading. Trust your fists when enemies corner you.',
+  'Did you know you can punch by pressing F?',
+ 'You can punch while reloading. Trust your fists when enemies corner you.',
+ 'Only you choose who to become. Build your character as a tank or a ninja.',
+ 'Don\'t forget to unlock upgrades at the Workshop with Gears earned from kills.',
+ 'Motherboard Fragments are your passive abilities. Once unlocked during a run, they can always be equipped at the Build Terminal.',
+ 'Each class has its own traits: LMG is fast but fragile, Shotgun is slow but devastating. Rifles offer a balanced playstyle.',
+ 'Did you know you can create millions of different build combinations using the Terminals?'
+];
+
+
+// Hint screen state
+let hintScreens = [];
+let hintIdx = Math.floor(Math.random() * HINT_MESSAGES.length);
+let hintTimer = 0;
+const HINT_INTERVAL = 6;
+
 const CORRIDOR_DEPTH = 18;       // how far back corridors extend from BACK_WALL_Z
 // Trigger fires 9 units past the back wall — deep enough to feel committed to a corridor
 const CORRIDOR_TRIGGER_Z = BACK_WALL_Z - 9;  // = -21
@@ -265,6 +287,8 @@ function buildScene() {
   buildTerminals();
   buildDecor();
   buildGraffiti();
+  buildHintScreen(-7, 1.8, 12.85, Math.PI);
+  buildHintScreen(7, 1.8, 12.85, Math.PI);
 }
 
 function buildLights() {
@@ -886,7 +910,169 @@ function buildGraffiti() {
   scene.add(plane);
 }
 
+function drawHintScreenCanvas(ctx, idx) {
+  const W = 512, H = 256;
+  
+  // ─── Background ───
+  const grad = ctx.createRadialGradient(W/2, H/2, 50, W/2, H/2, W/1.5);
+  grad.addColorStop(0, '#0a1a0c');
+  grad.addColorStop(1, '#020803');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle grid
+  ctx.strokeStyle = 'rgba(0, 255, 68, 0.04)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 32) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += 32) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Scanlines
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+  for (let y = 0; y < H; y += 4) {
+    ctx.fillRect(0, y, W, 2);
+  }
+
+  // ─── Borders & Corners ───
+  const orange = '#ef8a30';
+  const muted = 'rgba(171,135,83,0.4)';
+  
+  ctx.strokeStyle = muted;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(8, 8, W - 16, H - 16);
+
+  // Tech Corners
+  ctx.strokeStyle = orange;
+  ctx.lineWidth = 3;
+  const cs = 24; // corner size
+  // Top-left
+  ctx.beginPath(); ctx.moveTo(8, 8 + cs); ctx.lineTo(8, 8); ctx.lineTo(8 + cs, 8); ctx.stroke();
+  // Top-right
+  ctx.beginPath(); ctx.moveTo(W - 8 - cs, 8); ctx.lineTo(W - 8, 8); ctx.lineTo(W - 8, 8 + cs); ctx.stroke();
+  // Bottom-left
+  ctx.beginPath(); ctx.moveTo(8, H - 8 - cs); ctx.lineTo(8, H - 8); ctx.lineTo(8 + cs, H - 8); ctx.stroke();
+  // Bottom-right
+  ctx.beginPath(); ctx.moveTo(W - 8 - cs, H - 8); ctx.lineTo(W - 8, H - 8); ctx.lineTo(W - 8, H - 8 - cs); ctx.stroke();
+
+  // ─── Header Badge ───
+  ctx.fillStyle = 'rgba(239, 138, 48, 0.15)';
+  ctx.fillRect(W/2 - 70, 0, 140, 38);
+  ctx.strokeStyle = orange;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(W/2 - 70, 0, 140, 38);
+
+  ctx.fillStyle = orange;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = orange;
+  ctx.font = 'bold 20px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('💡 TIP', W / 2, 10);
+  ctx.shadowBlur = 0;
+
+  // ─── Message Text ───
+  ctx.fillStyle = '#d4b586';
+  ctx.font = '16px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const msg = HINT_MESSAGES[idx % HINT_MESSAGES.length];
+  const maxW = W - 100;
+  const words = msg.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW) {
+      lines.push(line);
+      line = w;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+
+  const startY = 85 + (3 - lines.length) * 12;
+  lines.forEach((l, i) => {
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.fillText(l, W / 2, startY + i * 28);
+    ctx.shadowBlur = 0;
+  });
+
+  // ─── Footer / Progress Bar ───
+  const total = HINT_MESSAGES.length;
+  const current = (idx % total) + 1;
+  const barW = 120;
+  const barH = 6;
+  const barX = W / 2 - barW / 2;
+  const barY = H - 40;
+
+  // Bar background
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(barX, barY, barW, barH);
+  ctx.strokeStyle = muted;
+  ctx.strokeRect(barX, barY, barW, barH);
+
+  // Segments
+  const segW = barW / total;
+  for (let i = 0; i < total; i++) {
+    if (i < current) {
+      ctx.fillStyle = orange;
+      ctx.fillRect(barX + i * segW + 1, barY + 1, segW - 2, barH - 2);
+    }
+  }
+
+  ctx.fillStyle = muted;
+  ctx.font = 'bold 11px monospace';
+  ctx.fillText(`STATUS: ADVISORY ${current}/${total}`, W / 2, H - 20);
+}
+
+function buildHintScreen(x, y, z, rotY) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+
+  drawHintScreenCanvas(ctx, hintIdx);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
+
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -4,
+  });
+
+  const screenW = 3.2, screenH = 1.6;
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(screenW, screenH), mat);
+  const offset = 0.06;
+  const px = x + Math.sin(rotY) * offset;
+  const pz = z + Math.cos(rotY) * offset;
+  plane.position.set(px, y, pz);
+  plane.rotation.y = rotY;
+  scene.add(plane);
+
+  const frameMat = new THREE.MeshLambertMaterial({ color: 0x1c251c });
+  const casing = mkBox(screenW + 0.2, screenH + 0.14, 0.10, x, y, z, frameMat);
+  casing.rotation.y = rotY;
+  scene.add(casing);
+
+  const glow = new THREE.PointLight(0xef8a30, 1.8, 6.0);
+  glow.position.set(x + Math.sin(rotY) * 0.5, y, z + Math.cos(rotY) * 0.5);
+  scene.add(glow);
+
+  hintScreens.push({ canvas, ctx, tex, glow });
+}
+
 // ─── HELPERS ──────────────────────────────────────────────────
+
 function mkBox(w, h, d, x, y, z, mat) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
@@ -1028,16 +1214,32 @@ function showLoadingScreen(cls) {
   }
   screen.innerHTML = '';
 
-  const clsLabel = cls.toUpperCase();
-  screen.innerHTML = `
-    <div id="wsl-inner">
-      <div id="wsl-title">MACHINE ARENA</div>
-      <div id="wsl-class">LOADING ${clsLabel} LOADOUT</div>
-      <div id="wsl-bar-wrap"><div id="wsl-bar"></div></div>
-      <div id="wsl-status">INITIALIZING SUBSYSTEMS...</div>
-      <div id="wsl-details"></div>
-    </div>
-  `;
+ const clsLabel = cls.toUpperCase();
+
+ const LOADING_HINTS = [
+ 'Did you know you can punch by pressing F?',
+ 'You can punch while reloading. Trust your fists when enemies corner you.',
+  'Did you know you can punch by pressing F?',
+ 'You can punch while reloading. Trust your fists when enemies corner you.',
+ 'Only you choose who to become. Build your character as a tank or a ninja.',
+ 'Don\'t forget to unlock upgrades at the Workshop with Gears earned from kills.',
+ 'Motherboard Fragments are your passive abilities. Once unlocked during a run, they can always be equipped at the Build Terminal.',
+ 'Each class has its own traits: LMG is fast but fragile, Shotgun is slow but devastating. Rifles offer a balanced playstyle.',
+ 'Did you know you can create millions of different build combinations using the Terminals?',
+ ];
+
+ const hint = LOADING_HINTS[Math.floor(Math.random() * LOADING_HINTS.length)];
+
+ screen.innerHTML = `
+ <div id="wsl-inner">
+ <div id="wsl-title">MACHINE ARENA</div>
+ <div id="wsl-class">LOADING ${clsLabel} LOADOUT</div>
+ <div id="wsl-bar-wrap"><div id="wsl-bar"></div></div>
+ <div id="wsl-status">INITIALIZING SUBSYSTEMS...</div>
+ <div id="wsl-details"></div>
+ <div id="wsl-hint">💡 ${hint}</div>
+ </div>
+ `;
   screen.style.display = 'flex';
 
   const bar     = document.getElementById('wsl-bar');
@@ -1884,6 +2086,19 @@ function loop() {
     if (nearTerminalIdx >= 0) drawMonitorActive(nearTerminalIdx);
   }
 
+  // Hint screen rotation
+  if (hintScreens.length > 0) {
+    hintTimer += delta;
+    if (hintTimer >= HINT_INTERVAL) {
+      hintTimer = 0;
+      hintIdx = (hintIdx + 1) % HINT_MESSAGES.length;
+      hintScreens.forEach(obj => {
+        drawHintScreenCanvas(obj.ctx, hintIdx);
+        obj.tex.needsUpdate = true;
+      });
+    }
+  }
+
   // Render pixelated
   _renderer.setRenderTarget(rt);
   _renderer.render(scene, cam);
@@ -2053,6 +2268,17 @@ const WS_CSS = `
   min-height: 70px;
 }
 #wsl-details div { margin-bottom: 4px; }
+#wsl-hint {
+ font-size: 11px;
+ color: #c9a86c;
+ letter-spacing: 0.5px;
+ text-align: center;
+ margin-top: 14px;
+ padding: 10px 12px;
+ border-top: 1px solid rgba(171, 135, 83, 0.35);
+ line-height: 1.5;
+ font-style: italic;
+}
 
 /* ── Intro / Controls overlay ── */
 #ws-intro {

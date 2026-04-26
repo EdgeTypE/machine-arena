@@ -538,7 +538,7 @@ export function applyMetaUpgrades(state, meta) {
 // ============================================================
 // GEARS DROP CALCULATION
 // Uses the meta gears_drop level to calculate bonus gears
-// Level 0: enemies drop very few gears (5% chance/rate)
+// Level 0: enemies drop very few gears (15% chance/rate)
 // Level 1-5: Regular enemies drop increasing gears (20% to 100%)
 // ============================================================
 export function calculateGearsDrop(enemyMaxHealth, isBoss, metaGearsDropLevel) {
@@ -546,8 +546,8 @@ export function calculateGearsDrop(enemyMaxHealth, isBoss, metaGearsDropLevel) {
   if (isBoss) return baseGears; // bosses always drop full gears
 
   if (metaGearsDropLevel <= 0) {
-    // Level 0: Small drop rate (5%) instead of zero
-    const chanceValue = baseGears * 0.05;
+    // Level 0: Small drop rate (15%) instead of zero
+    const chanceValue = baseGears * 0.15;
     if (chanceValue < 1) {
       return Math.random() < chanceValue ? 1 : 0;
     }
