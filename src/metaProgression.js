@@ -371,7 +371,7 @@ export function purchaseUpgrade(meta, upgradeDef) {
 // TRANSFER GEARS (end of run — 10% of run gears)
 // ============================================================
 export function transferRunGears(meta, runGears) {
-  const transferred = Math.floor(runGears * 0.10);
+  const transferred = Math.floor(runGears * 0.30);
   meta.permanentGears += transferred;
   saveMeta(meta);
   return transferred;
