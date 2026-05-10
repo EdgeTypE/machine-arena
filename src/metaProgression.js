@@ -368,10 +368,10 @@ export function purchaseUpgrade(meta, upgradeDef) {
 }
 
 // ============================================================
-// TRANSFER GEARS (end of run — 25% of run gears)
+// TRANSFER GEARS (end of run — 45% of run gears)
 // ============================================================
 export function transferRunGears(meta, runGears) {
-  const transferred = Math.floor(runGears * 0.25);
+  const transferred = Math.floor(runGears * 0.45);
   meta.permanentGears += transferred;
   saveMeta(meta);
   return transferred;
@@ -542,12 +542,12 @@ export function applyMetaUpgrades(state, meta) {
 // Level 1-5: Regular enemies drop increasing gears (20% to 100%)
 // ============================================================
 export function calculateGearsDrop(enemyMaxHealth, isBoss, metaGearsDropLevel) {
-  const baseGears = Math.floor(enemyMaxHealth / 5);
+  const baseGears = Math.floor(enemyMaxHealth / 3);
   if (isBoss) return baseGears; // bosses always drop full gears
 
   if (metaGearsDropLevel <= 0) {
-    // Level 0: Small drop rate (15%) instead of zero
-    const chanceValue = baseGears * 0.15;
+    // Level 0: Small drop rate (55%) instead of zero
+    const chanceValue = baseGears * 0.55;
     if (chanceValue < 1) {
       return Math.random() < chanceValue ? 1 : 0;
     }
